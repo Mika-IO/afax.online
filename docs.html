@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="AFAX documentation — install, configure and run your autonomous AI company from the terminal. Deep guides for every agent, command and integration.">
+<meta property="og:title" content="AFAX — Documentation">
+<meta property="og:description" content="Deep guides for every AFAX agent, command and integration.">
+<title>AFAX — Documentation</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='black'/><text x='16' y='23' font-family='Georgia,serif' font-style='italic' font-size='22' font-weight='600' fill='%23ff7a1a' text-anchor='middle'>A</text></svg>">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:90px}
+:root{
+  --bg:#000;--fg:#fff;
+  --fg-dim:rgba(255,255,255,.55);--fg-soft:rgba(255,255,255,.75);
+  --line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.14);
+  --accent:#ff7a1a;--card:#0b0b0c;
+  --sans:ui-sans-serif,system-ui,-apple-system,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --serif:ui-serif,Georgia,"Times New Roman","Iowan Old Style",serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+::selection{background:#fff;color:#000}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:50;padding:18px 28px;display:flex;justify-content:space-between;align-items:center;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.logo{font-weight:600;letter-spacing:.02em;font-size:16px}
+.logo span{color:var(--accent);font-family:var(--serif);font-style:italic}
+.nav-links{display:flex;gap:26px;font-size:14px}
+.nav-links a{opacity:.7;transition:opacity .2s}
+.nav-links a:hover{opacity:1}
+.nav-links a.cta{opacity:1;color:var(--accent)}
+@media(max-width:880px){.nav-links a:not(.cta){display:none}}
+
+/* LAYOUT */
+.shell{display:grid;grid-template-columns:260px 1fr;max-width:1280px;margin:0 auto;padding-top:64px}
+@media(max-width:980px){.shell{grid-template-columns:1fr}}
+aside{position:sticky;top:64px;height:calc(100vh - 64px);overflow-y:auto;padding:36px 20px 60px;border-right:1px solid var(--line)}
+@media(max-width:980px){aside{display:none}}
+aside .group{font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:var(--fg-dim);margin:26px 0 10px;font-weight:600}
+aside .group:first-child{margin-top:0}
+aside a{display:block;padding:5px 12px;font-size:13.5px;color:var(--fg-dim);border-left:2px solid transparent;transition:.18s}
+aside a:hover{color:#fff;border-left-color:var(--line-2)}
+aside a.active{color:#fff;border-left-color:var(--accent)}
+
+main{padding:48px 56px 80px;min-width:0;max-width:860px}
+@media(max-width:980px){main{padding:32px 24px 70px}}
+
+/* MOBILE PAGE PICKER */
+.mob-nav{display:none;margin:0 0 26px}
+@media(max-width:980px){.mob-nav{display:block}}
+.mob-nav select{width:100%;background:var(--card);color:#fff;border:1px solid var(--line-2);border-radius:10px;padding:11px 14px;font-size:14px;font-family:var(--sans)}
+
+/* TYPE */
+main h1{font-size:clamp(32px,5vw,46px);font-weight:600;letter-spacing:-.035em;line-height:1.05;margin:6px 0 18px}
+main h2{font-size:25px;font-weight:600;letter-spacing:-.02em;margin:54px 0 12px;padding-top:14px;border-top:1px solid var(--line);scroll-margin-top:84px}
+main h3{font-size:18px;font-weight:600;margin:32px 0 10px;letter-spacing:-.01em;scroll-margin-top:84px}
+main h4{font-size:14px;font-weight:600;margin:22px 0 8px;color:var(--fg-soft)}
+main p{color:var(--fg-soft);margin:12px 0}
+main ul,main ol{color:var(--fg-soft);margin:12px 0 12px 22px}
+main li{margin:6px 0}
+main strong{color:#fff;font-weight:600}
+main em{font-family:var(--serif)}
+main hr{border:0;border-top:1px solid var(--line);margin:44px 0}
+main a:not(.btn){color:var(--accent);border-bottom:1px solid rgba(255,122,26,.35)}
+main a:not(.btn):hover{border-bottom-color:var(--accent)}
+
+/* CODE */
+main code{font-family:var(--mono);font-size:.86em;background:rgba(255,255,255,.07);padding:2px 6px;border-radius:5px;color:#ffd9b8}
+main pre{background:var(--card);border:1px solid var(--line-2);border-radius:12px;padding:18px 20px;overflow-x:auto;margin:16px 0;position:relative}
+main pre code{background:none;padding:0;font-size:13px;line-height:1.7;display:block;color:#cfd2d6}
+main pre .label{position:absolute;top:9px;right:12px;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--fg-dim)}
+
+/* CALLOUTS (blockquotes) */
+main blockquote{border:1px solid var(--line-2);border-left:3px solid var(--accent);background:rgba(255,122,26,.05);border-radius:8px;padding:13px 18px;margin:18px 0;font-size:14px}
+main blockquote.warn{border-left-color:#e5484d;background:rgba(229,72,77,.06)}
+main blockquote p{margin:4px 0}
+
+/* TABLES */
+main table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px;display:block;overflow-x:auto}
+main th{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-2);color:var(--fg-dim);font-weight:500;text-transform:uppercase;letter-spacing:.08em;font-size:11px;white-space:nowrap}
+main td{padding:10px 12px;border-bottom:1px solid var(--line);color:var(--fg-soft);vertical-align:top}
+
+/* PREV / NEXT */
+.pager{display:flex;gap:14px;margin-top:60px}
+.pager a{flex:1;border:1px solid var(--line-2);border-radius:12px;padding:14px 18px;font-size:14px;transition:border-color .2s;border-bottom-width:1px!important}
+.pager a:hover{border-color:var(--accent)}
+.pager .dir{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--fg-dim);margin-bottom:3px}
+.pager .next{text-align:right}
+.pager .t{color:#fff;font-weight:600}
+
+.loading{color:var(--fg-dim);padding:60px 0;font-size:14px}
+
+footer{border-top:1px solid var(--line);padding:34px 56px;color:var(--fg-dim);font-size:13px;max-width:860px;margin-left:max(0px,calc((100% - 1280px)/2 + 260px))}
+@media(max-width:980px){footer{padding:30px 24px;margin:0}}
+footer a{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">AF<span>A</span>X</a>
+  <div class="nav-links">
+    <a href="#/quickstart">Quick start</a>
+    <a href="#/orchestrator">Agents</a>
+    <a href="#/integrations">Integrations</a>
+    <a href="#/vps">24/7 VPS</a>
+    <a href="https://github.com/mika-io/afax.online" class="cta">GitHub →</a>
+  </div>
+</nav>
+
+<div class="shell">
+<aside id="sidebar"></aside>
+<main id="content"><p class="loading">Loading…</p></main>
+</div>
+
+<footer>© 2026 AFAX — built quietly, for builders. · <a href="/">Home</a> · <a href="https://github.com/mika-io/afax.online">GitHub</a> · Docs are plain markdown in <a href="https://github.com/mika-io/afax.online/tree/main/docs"><code>docs/</code></a></footer>
+
+<script>
+/* ---------------------------------------------------------------- manifest */
+const MANIFEST = [
+  { group: 'Getting started', pages: [
+    ['introduction',  'Introduction'],
+    ['installation',  'Installation'],
+    ['quickstart',    'Quick start'],
+  ]},
+  { group: 'Configuration', pages: [
+    ['configuration', 'Providers & config'],
+    ['context',       'Company context & memory'],
+    ['workspaces',    'Workspaces (multi-company)'],
+  ]},
+  { group: 'Agents & autonomy', pages: [
+    ['orchestrator',  'Orchestrator & autonomy'],
+    ['prospect',      '🎯 Prospect'],
+    ['outreach',      '📨 Outreach'],
+    ['marketing',     '🚀 Marketing'],
+    ['sales',         '💰 Sales'],
+    ['content',       '✍️ Content'],
+    ['crm',           '🤝 CRM'],
+    ['automation',    '🤖 Automation'],
+    ['finance',       '📊 Finance'],
+  ]},
+  { group: 'Integrations', pages: [
+    ['integrations',  'Overview & safety'],
+    ['email',         'Email'],
+    ['meta',          'Meta (FB / IG / WhatsApp)'],
+    ['messaging',     'Telegram / Slack / Discord'],
+    ['leads',         'Lead sourcing (Hunter)'],
+    ['media',         'Media generation'],
+    ['deploy',        'Deploy (SSH)'],
+  ]},
+  { group: 'Operations', pages: [
+    ['scheduler',     'Scheduler'],
+    ['vps',           'Running 24/7 on a VPS'],
+    ['export-import', 'Export / import'],
+  ]},
+  { group: 'Reference', pages: [
+    ['cli',           'Command reference'],
+    ['architecture',  'Architecture'],
+    ['troubleshooting','Troubleshooting & FAQ'],
+    ['roadmap',       'Roadmap & status'],
+    ['contributing',  'Contributing'],
+  ]},
+];
+const FLAT = MANIFEST.flatMap(g => g.pages);
+const TITLES = Object.fromEntries(FLAT);
+
+/* ------------------------------------------------------ markdown renderer */
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function inline(s){
+  // protect inline code spans first
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return '\u0000' + (codes.length-1) + '\u0000'; });
+  s = esc(s)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(>])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, h) =>
+      `<a href="${h}"${/^https?:/.test(h) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`);
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code>' + esc(codes[+i]) + '</code>');
+}
+
+function renderMD(md){
+  const lines = md.replace(/\r/g,'').split('\n');
+  let html = '', i = 0;
+  const slugCount = {};
+  const hid = t => {
+    let s = t.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    if (slugCount[s] != null) s += '-' + (++slugCount[s]); else slugCount[s] = 0;
+    return s;
+  };
+  while (i < lines.length){
+    const l = lines[i];
+
+    if (/^```/.test(l)){                                   // fenced code
+      const lang = l.slice(3).trim();
+      let buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      html += `<pre>${lang ? `<span class="label">${esc(lang)}</span>` : ''}<code>${esc(buf.join('\n'))}</code></pre>`;
+      continue;
+    }
+    const h = l.match(/^(#{1,4})\s+(.+)$/);                // headings
+    if (h){
+      const n = h[1].length, t = h[2].trim();
+      html += `<h${n} id="${hid(t)}">${inline(t)}</h${n}>`;
+      i++; continue;
+    }
+    if (/^(---|\*\*\*)\s*$/.test(l)){ html += '<hr>'; i++; continue; }
+    if (/^>/.test(l)){                                     // blockquote callout
+      let buf = [];
+      while (i < lines.length && /^>/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/,''));
+      const cls = /^\*\*warn/i.test(buf[0]) ? ' class="warn"' : '';
+      html += `<blockquote${cls}>` + buf.filter(Boolean).map(b => `<p>${inline(b)}</p>`).join('') + '</blockquote>';
+      continue;
+    }
+    if (/^\|/.test(l) && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i+1] || '')){   // table
+      const cells = r => r.replace(/^\||\|$/g,'').split('|').map(c => c.trim());
+      const head = cells(l); i += 2;
+      let rows = [];
+      while (i < lines.length && /^\|/.test(lines[i])) rows.push(cells(lines[i++]));
+      html += '<table><thead><tr>' + head.map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
+        + rows.map(r => '<tr>' + r.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>').join('')
+        + '</tbody></table>';
+      continue;
+    }
+    const list = l.match(/^(\s*)([-*]|\d+\.)\s+/);          // lists (one level)
+    if (list){
+      const ordered = /^\d/.test(list[2]);
+      const tag = ordered ? 'ol' : 'ul';
+      let items = [];
+      while (i < lines.length){
+        const m = lines[i].match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
+        if (!m || /^\d/.test(m[2]) !== ordered) break;
+        let item = m[3]; i++;
+        while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !/^\s*([-*]|\d+\.)\s/.test(lines[i]))
+          item += ' ' + lines[i++].trim();
+        items.push(item);
+      }
+      html += `<${tag}>` + items.map(it => `<li>${inline(it)}</li>`).join('') + `</${tag}>`;
+      continue;
+    }
+    if (!l.trim()){ i++; continue; }                        // blank
+    let buf = [l]; i++;                                     // paragraph
+    while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|```|>|\||---|\s*([-*]|\d+\.)\s)/.test(lines[i]))
+      buf.push(lines[i++]);
+    html += `<p>${inline(buf.join(' '))}</p>`;
+  }
+  return html;
+}
+
+/* ----------------------------------------------------------------- router */
+const sidebar = document.getElementById('sidebar');
+const content = document.getElementById('content');
+
+sidebar.innerHTML = MANIFEST.map(g =>
+  `<div class="group">${g.group}</div>` +
+  g.pages.map(([slug, title]) => `<a href="#/${slug}" data-page="${slug}">${title}</a>`).join('')
+).join('');
+
+const mobOptions = MANIFEST.map(g =>
+  `<optgroup label="${g.group}">` +
+  g.pages.map(([slug, title]) => `<option value="${slug}">${title}</option>`).join('') +
+  '</optgroup>'
+).join('');
+
+function currentSlug(){
+  const m = location.hash.match(/^#\/([a-z0-9-]+)/);
+  return m && TITLES[m[1]] ? m[1] : 'introduction';
+}
+
+const cache = {};
+async function show(){
+  const slug = currentSlug();
+  document.title = `AFAX Docs — ${TITLES[slug]}`;
+  sidebar.querySelectorAll('a').forEach(a => a.classList.toggle('active', a.dataset.page === slug));
+
+  if (!cache[slug]){
+    content.innerHTML = '<p class="loading">Loading…</p>';
+    try {
+      const res = await fetch(`docs/${slug}.md`);
+      if (!res.ok) throw new Error(res.status);
+      cache[slug] = renderMD(await res.text());
+    } catch (e) {
+      cache[slug] = null;
+      content.innerHTML = `<h1>Couldn't load this page</h1>
+        <p>Fetching <code>docs/${slug}.md</code> failed (${esc(String(e.message))}).
+        If you opened this file directly from disk, serve it instead (<code>npx serve</code>) —
+        or read the markdown on
+        <a href="https://github.com/mika-io/afax.online/blob/main/docs/${slug}.md" target="_blank" rel="noopener">GitHub</a>.</p>`;
+      return;
+    }
+  }
+
+  const idx = FLAT.findIndex(([s]) => s === slug);
+  const prev = FLAT[idx-1], next = FLAT[idx+1];
+  const pager = (prev || next) ? `<div class="pager">
+      ${prev ? `<a href="#/${prev[0]}"><span class="dir">← Previous</span><span class="t">${prev[1]}</span></a>` : '<span style="flex:1"></span>'}
+      ${next ? `<a class="next" href="#/${next[0]}"><span class="dir">Next →</span><span class="t">${next[1]}</span></a>` : '<span style="flex:1"></span>'}
+    </div>` : '';
+
+  content.innerHTML =
+    `<div class="mob-nav"><select onchange="location.hash='#/'+this.value">${mobOptions}</select></div>`
+    + cache[slug] + pager;
+  content.querySelector('.mob-nav select').value = slug;
+  window.scrollTo(0, 0);
+}
+
+window.addEventListener('hashchange', show);
+// legacy deep links from the old single-page docs (#install, #agents, …)
+const LEGACY = { intro:'introduction', requirements:'installation', install:'installation',
+  providers:'configuration', env:'configuration', config:'configuration', agents:'orchestrator',
+  safety:'integrations', connect:'integrations', 'leads-int':'leads', export:'export-import',
+  commands:'cli', files:'architecture', memory:'context' };
+const legacy = location.hash.replace(/^#/,'');
+if (LEGACY[legacy]) location.hash = '#/' + LEGACY[legacy];
+show();
+</script>
+</body>
+</html>

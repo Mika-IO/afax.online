@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.DS_Store
+# Secrets — never commit
+.env
+.env.*
+# Local AFAX data (if ever run with AFAX_HOME=. )
+.afax/

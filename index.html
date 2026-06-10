@@ -222,6 +222,29 @@ nav.hide{transform:translateY(-110%)}
 }
 .cap.in::before{height:60px}
 
+/* ===== AGENT TICKER ===== */
+.ticker{
+  margin-top:96px;overflow:hidden;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+}
+.ticker-track{
+  display:flex;width:max-content;
+  animation:ticker 38s linear infinite;
+  will-change:transform;
+}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker span{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:13px 26px;white-space:nowrap;
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--fg-dim);
+}
+.ticker span::after{content:"▲";font-size:7px;color:var(--accent);opacity:.6}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
 /* ===== IMAGE BREAK ===== */
 .image-break{position:relative;height:70vh;overflow:hidden;contain:layout paint}
 .image-break img{
@@ -394,6 +417,7 @@ footer{
     <a href="#how">How</a>
     <a href="#pricing">Pricing</a>
     <a href="#license">License</a>
+    <a href="/docs.html">Docs</a>
     <a href="#start">Start →</a>
   </div>
 </nav>
@@ -451,24 +475,29 @@ footer{
 <!-- CAPABILITIES -->
 <section class="caps" id="how" aria-label="Capabilities">
   <div class="eyebrow reveal">— What it does</div>
-  <h2 class="big reveal reveal-delay-1">Seven agents.<br>One <em>orchestrator.</em><br>Always shipping.</h2>
-  <p class="lead reveal reveal-delay-2">Each agent owns a function. The orchestrator coordinates — passing context, holding memory, knowing when to pause for you.</p>
+  <h2 class="big reveal reveal-delay-1">Seven agents.<br>One <em>orchestrator.</em><br>One company, running itself.</h2>
+  <p class="lead reveal reveal-delay-2">Agents own every stage of your revenue machine. The orchestrator coordinates — passing context, holding memory, pausing for you when it counts.</p>
 
   <div class="caps-grid">
     <div class="cap reveal">
-      <div class="cap-num">— 01</div>
-      <h3>Build</h3>
-      <p>Writes code, opens PRs, runs tests, reviews itself. Lives inside your git workflow.</p>
+      <h3>Acquire</h3>
+      <p>Finds leads and runs every channel — SEO, ads, outreach, referrals. Pipeline fills while you sleep.</p>
     </div>
     <div class="cap reveal reveal-delay-1">
-      <div class="cap-num">— 02</div>
-      <h3>Ship</h3>
-      <p>Handles deploys, preview environments, rollbacks. Your infra, your rules.</p>
+      <h3>Sell</h3>
+      <p>AI follow-ups, content and closing, tracked in a CRM that's a single source of truth.</p>
     </div>
     <div class="cap reveal reveal-delay-2">
-      <div class="cap-num">— 03</div>
-      <h3>Speak</h3>
-      <p>Drafts changelogs, social posts, customer replies. You approve what matters.</p>
+      <h3>Operate</h3>
+      <p>Automation flows wire it together. Finance tracks cash, MRR and invoices end to end.</p>
+    </div>
+  </div>
+
+  <!-- Agent ticker -->
+  <div class="ticker reveal" aria-hidden="true">
+    <div class="ticker-track">
+      <span>Prospect</span><span>Marketing</span><span>Sales</span><span>Content</span><span>CRM</span><span>Automation</span><span>Finance</span>
+      <span>Prospect</span><span>Marketing</span><span>Sales</span><span>Content</span><span>CRM</span><span>Automation</span><span>Finance</span>
     </div>
   </div>
 </section>
@@ -510,7 +539,7 @@ footer{
         <li>Bring your own LLM keys</li>
         <li>Community support</li>
       </ul>
-      <a href="#" class="btn btn-ghost">Clone the repo <span class="ar" aria-hidden="true">→</span></a>
+      <a href="https://github.com/mika-io/afax.online" class="btn btn-ghost">Clone the repo <span class="ar" aria-hidden="true">→</span></a>
     </article>
     <article class="plan">
       <div class="plan-tag">Recommended</div>
@@ -533,7 +562,7 @@ footer{
 <section class="license" id="license" aria-label="License">
   <div class="eyebrow reveal">— License</div>
   <h2 class="reveal reveal-delay-1">Grow with us.<br><em>We roots for you.</em></h2>
-  <p class="reveal reveal-delay-2">Inspired by Unreal Engine. Free under $200K revenue. Small royalty above. Open code. No surprises.</p>
+  <p class="reveal reveal-delay-2">The AFAX Fair License. Free under $200K revenue. Small royalty above. Open code. No surprises.</p>
 
   <div class="lic-rules">
     <div class="lic-rule">
@@ -569,11 +598,11 @@ footer{
       loading="lazy" decoding="async">
   </div>
   <div class="final-inner">
-    <h2 class="reveal">Sleep tonight.<br>Ship <em>anyway.</em></h2>
+    <h2 class="reveal">Sleep tonight.<br>Sell <em>anyway.</em></h2>
     <p class="reveal reveal-delay-1">v0.1 launches soon. Join the waitlist — early access for builders.</p>
     <div class="final-actions reveal reveal-delay-2">
-      <a href="#" class="btn btn-primary">Join the waitlist <span class="ar" aria-hidden="true">→</span></a>
-      <a href="#" class="btn btn-ghost">Star on GitHub</a>
+      <a href="/docs.html" class="btn btn-primary">Read the docs <span class="ar" aria-hidden="true">→</span></a>
+      <a href="https://github.com/mika-io/afax.online" class="btn btn-ghost">Star on GitHub</a>
     </div>
   </div>
 </section>
@@ -584,10 +613,9 @@ footer{
   <div class="foot-inner">
     <div>© 2026 AFAX — built quietly, for builders.</div>
     <div class="foot-links">
-      <a href="#">GitHub</a>
-      <a href="#">Docs</a>
-      <a href="#">Discord</a>
-      <a href="#">License</a>
+      <a href="https://github.com/mika-io/afax.online">GitHub</a>
+      <a href="/docs.html">Docs</a>
+      <a href="#license">License</a>
     </div>
   </div>
 </footer>

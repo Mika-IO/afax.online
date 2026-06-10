@@ -1,0 +1,73 @@
+// Central dispatch for outbound actions. Enforces the live/dry-run safety gate:
+// nothing leaves the machine unless `live` is true (global config.live + --live).
+import { isLive } from '../config.js';
+import * as email from './email.js';
+import * as meta from './meta.js';
+import * as messaging from './messaging.js';
+import * as leads from './leads.js';
+import * as media from './media.js';
+
+export { email, meta, messaging, leads, media };
+
+// Aggregate connection status for `afax connections`.
+export function connections() {
+  const e = email.status();
+  const m = meta.status();
+  const msg = messaging.status();
+  const l = leads.status();
+  const md = media.status();
+  return [
+    ['Email', e.connected, `${e.driver} · ${e.from}`],
+    ['Facebook', m.connected && m.facebook, 'Meta Graph'],
+    ['Instagram', m.connected && m.instagram, 'Meta Graph'],
+    ['WhatsApp', m.connected && m.whatsapp, 'Cloud API'],
+    ['Telegram', msg.telegram, 'Bot API'],
+    ['Slack', msg.slack, 'Webhook/Bot'],
+    ['Discord', msg.discord, 'Webhook'],
+    ['Leads (Hunter)', l.connected, l.driver],
+    ['Media (images)', md.connected, `${md.driver} · ${md.model}`],
+  ];
+}
+
+/**
+ * Publish a one-to-many post to a social platform.
+ * @returns { ok, dryRun, result?, error? }
+ */
+export async function publish({ platform, message, imageUrl, link, live }) {
+  return guarded(live, platform, async () => {
+    switch (platform) {
+      case 'facebook': return meta.facebookPost({ message, link });
+      case 'instagram': return meta.instagramPublish({ imageUrl, caption: message });
+      case 'telegram': return messaging.telegramSend({ text: message });
+      case 'slack': return messaging.slackSend({ text: message });
+      case 'discord': return messaging.discordSend({ text: message });
+      default: throw new Error(`Unknown publish platform "${platform}".`);
+    }
+  });
+}
+
+/**
+ * Send a 1:1 direct message (outreach).
+ */
+export async function dm({ platform, to, subject, text, live }) {
+  return guarded(live, `${platform}→${to}`, async () => {
+    switch (platform) {
+      case 'email': return email.send({ to, subject: subject || 'Hello', text });
+      case 'whatsapp': return meta.whatsappSend({ to, text });
+      case 'telegram': return messaging.telegramSend({ text, chatId: to });
+      default: throw new Error(`Unknown dm platform "${platform}".`);
+    }
+  });
+}
+
+// The single choke-point that decides dry-run vs real send.
+async function guarded(live, label, fn) {
+  const go = live && isLive();
+  if (!go) return { ok: true, dryRun: true, label };
+  try {
+    const result = await fn();
+    return { ok: true, dryRun: false, label, result };
+  } catch (error) {
+    return { ok: false, dryRun: false, label, error: error.message };
+  }
+}

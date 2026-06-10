@@ -1,0 +1,45 @@
+AFAX Fair License v1.0
+Copyright (c) 2026 AFAX
+
+Plain-language summary (the full terms below control):
+  • Free under USD $200,000 / year revenue — use, self-host, modify, integrate, monetize.
+  • Above $200,000 / year — a small royalty on revenue attributable to AFAX applies.
+  • Source-available. Modify freely for internal use.
+  • You may NOT repackage AFAX as a competing product.
+  • No surprises.
+
+1. DEFINITIONS
+  "Software" means AFAX and its source code in this repository.
+  "You" means the individual or entity exercising rights under this License.
+  "Annual Revenue" means Your total gross revenue across all entities under
+  common control over a trailing 12-month period.
+
+2. GRANT
+  Subject to the terms below, You are granted a worldwide, non-exclusive,
+  royalty-free (subject to Section 3) license to use, copy, modify, and
+  distribute the Software, and to run it to operate Your own business.
+
+3. REVENUE THRESHOLD & ROYALTY
+  (a) If Your Annual Revenue is below USD $200,000, no royalty is owed.
+  (b) If Your Annual Revenue is USD $200,000 or more, a royalty of five percent
+      (5%) of revenue directly attributable to Your use of the Software is owed.
+      Contact the copyright holder to arrange payment.
+
+4. PERMITTED USE
+  You may modify the Software for Your own internal and commercial use,
+  integrate it into Your stack, and deploy it on Your own infrastructure.
+
+5. RESTRICTIONS
+  You may NOT offer the Software, or a modified version of it, as a hosted or
+  packaged product that competes with AFAX, whether free or paid, without a
+  separate written agreement with the copyright holder.
+
+6. WARRANTY DISCLAIMER
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+7. LIMITATION OF LIABILITY
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+  DAMAGES, OR OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

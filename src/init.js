@@ -1,0 +1,59 @@
+// `afax init` — interactive setup: provider, model, keys, business profile.
+import { createInterface } from 'node:readline/promises';
+import { stdin, stdout } from 'node:process';
+import { load, save, DEFAULTS } from './config.js';
+import { c, header, ok, info, log, dim } from './logger.js';
+
+export async function init() {
+  header('AFAX · Setup', 'Configure your autonomous company in ~60 seconds');
+  const rl = createInterface({ input: stdin, output: stdout });
+  const cfg = load();
+
+  const ask = async (q, def) => {
+    const a = (await rl.question(`  ${c.cyan('?')} ${q}${def ? c.dim(` (${def})`) : ''}: `)).trim();
+    return a || def || '';
+  };
+
+  try {
+    log(c.bold('  1) LLM provider'));
+    dim('     anthropic · openai (also Groq/OpenRouter/local) · ollama (offline)');
+    const provider = (await ask('Provider', cfg.provider)).toLowerCase();
+    cfg.provider = ['anthropic', 'openai', 'ollama'].includes(provider) ? provider : 'anthropic';
+
+    const block = cfg.providers[cfg.provider];
+    if (cfg.provider !== 'ollama') {
+      const envName = cfg.provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY';
+      log('');
+      dim(`     Tip: leave blank to use the ${envName} env var instead of storing the key on disk.`);
+      const key = await ask('API key', block.apiKey ? '•••stored' : '');
+      if (key && key !== '•••stored') block.apiKey = key;
+      if (cfg.provider === 'openai') {
+        block.baseUrl = await ask('Base URL (OpenAI-compatible)', block.baseUrl);
+      }
+    } else {
+      block.baseUrl = await ask('Ollama URL', block.baseUrl);
+    }
+    block.model = await ask('Model', block.model);
+
+    log('');
+    log(c.bold('  2) Business profile') + c.dim('  (powers every agent)'));
+    cfg.business.name = await ask('Company name', cfg.business.name);
+    cfg.business.offer = await ask('What you sell', cfg.business.offer);
+    cfg.business.icp = await ask('Ideal customer (ICP)', cfg.business.icp);
+    cfg.business.tone = await ask('Brand tone', cfg.business.tone);
+    cfg.business.website = await ask('Website', cfg.business.website);
+
+    log('');
+    log(c.bold('  3) Autonomy'));
+    dim('     suggest = AFAX proposes, you approve · execute = AFAX acts on its own');
+    const aut = (await ask('Autonomy', cfg.autonomy)).toLowerCase();
+    cfg.autonomy = aut === 'execute' ? 'execute' : 'suggest';
+
+    save(cfg);
+    log('');
+    ok('Setup saved.');
+    info(`Try it:  ${c.cyan('afax status')}  ·  ${c.cyan('afax run')}  ·  ${c.cyan(`afax prospect --target "${cfg.business.icp || 'SaaS founders'}" --limit 10`)}`);
+  } finally {
+    rl.close();
+  }
+}

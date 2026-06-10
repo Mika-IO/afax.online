@@ -1,0 +1,32 @@
+{
+  "name": "afax",
+  "version": "0.1.0",
+  "description": "AFAX — Autonomous Force for Automation eXecution. Your company on autopilot with AI.",
+  "type": "module",
+  "bin": {
+    "afax": "bin/afax.js"
+  },
+  "scripts": {
+    "start": "node bin/afax.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "autonomous",
+    "crm",
+    "marketing",
+    "sales",
+    "cli",
+    "llm"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {}
+}
