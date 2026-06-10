@@ -87,6 +87,39 @@ nav.hide{transform:translateY(-110%)}
 .ar{display:inline-block;transition:transform .25s cubic-bezier(.2,.8,.2,1)}
 .btn:hover .ar{transform:translateX(4px)}
 
+/* ===== TRIAL MODAL ===== */
+#trial-modal{
+  border:1px solid rgba(255,255,255,.14);border-radius:20px;
+  background:#0b0b0c;color:#fff;
+  padding:40px 36px;max-width:420px;width:calc(100% - 40px);
+  font-family:inherit;letter-spacing:-.01em;
+}
+#trial-modal::backdrop{background:rgba(0,0,0,.75);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#trial-modal h3{font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:0 0 8px}
+#trial-modal h3 em{font-family:Georgia,serif;font-style:italic;font-weight:400;color:var(--accent)}
+#trial-modal p{color:rgba(255,255,255,.6);font-size:14px;line-height:1.6;margin:0 0 22px}
+#trial-modal input{
+  width:100%;background:rgba(255,255,255,.05);color:#fff;
+  border:1px solid rgba(255,255,255,.15);border-radius:12px;
+  padding:13px 16px;font-size:15px;font-family:inherit;margin-bottom:12px;
+}
+#trial-modal input:focus{outline:none;border-color:var(--accent)}
+#trial-modal input::placeholder{color:rgba(255,255,255,.35)}
+#trial-modal .btn{width:100%;justify-content:center;cursor:pointer}
+#trial-modal .btn[disabled]{opacity:.6;transform:none;cursor:wait}
+#trial-modal .t-close{
+  position:absolute;top:14px;right:18px;background:none;border:none;cursor:pointer;
+  color:rgba(255,255,255,.45);font-size:22px;line-height:1;padding:4px;
+}
+#trial-modal .t-close:hover{color:#fff}
+#trial-modal .t-error{color:#e5484d;font-size:13px;margin:10px 0 0;display:none}
+#trial-success{display:none;text-align:center;padding:8px 0 4px}
+#trial-success .tick{
+  width:52px;height:52px;border-radius:50%;border:1px solid var(--accent);
+  color:var(--accent);font-size:24px;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 18px;
+}
+
 /* ===== HERO ===== */
 .hero{
   min-height:100vh;min-height:100svh;
@@ -553,7 +586,7 @@ footer{
         <li>Direct support from the team</li>
         <li>Migration help included</li>
       </ul>
-      <a href="#" class="btn btn-primary">Start free trial <span class="ar" aria-hidden="true">→</span></a>
+      <button type="button" class="btn btn-primary" id="trial-open">Start free trial <span class="ar" aria-hidden="true">→</span></button>
     </article>
   </div>
 </section>
@@ -609,6 +642,25 @@ footer{
 
 </main>
 
+<dialog id="trial-modal" aria-labelledby="trial-title">
+  <button type="button" class="t-close" aria-label="Close">×</button>
+  <div id="trial-form-wrap">
+    <h3 id="trial-title">Cloud is <em>almost</em> here.</h3>
+    <p>The managed trial opens with v0.1. Leave your email and you're first in line — early access for builders.</p>
+    <form id="trial-form" novalidate>
+      <input type="text" name="name" placeholder="Your name (optional)" autocomplete="name">
+      <input type="email" name="email" placeholder="you@company.com" required autocomplete="email">
+      <button type="submit" class="btn btn-primary">Join the waitlist <span class="ar" aria-hidden="true">→</span></button>
+      <p class="t-error">Something went wrong — please try again.</p>
+    </form>
+  </div>
+  <div id="trial-success">
+    <div class="tick">✓</div>
+    <h3>You're <em>in.</em></h3>
+    <p style="margin-bottom:6px">We saved your email — we'll let you know the moment the Cloud trial is available.</p>
+  </div>
+</dialog>
+
 <footer>
   <div class="foot-inner">
     <div>© 2026 AFAX — built quietly, for builders.</div>
@@ -654,6 +706,51 @@ footer{
 
   if ('requestIdleCallback' in window) requestIdleCallback(init, {timeout:500});
   else setTimeout(init, 1);
+})();
+
+// ===== Trial waitlist modal (Formspree) =====
+(function(){
+  var modal = document.getElementById('trial-modal');
+  var form = document.getElementById('trial-form');
+  var wrap = document.getElementById('trial-form-wrap');
+  var success = document.getElementById('trial-success');
+  var error = form.querySelector('.t-error');
+  var submitBtn = form.querySelector('button[type=submit]');
+
+  document.getElementById('trial-open').addEventListener('click', function(){
+    wrap.style.display = '';
+    success.style.display = 'none';
+    error.style.display = 'none';
+    modal.showModal();
+    form.querySelector('input[type=email]').focus();
+  });
+  modal.querySelector('.t-close').addEventListener('click', function(){ modal.close(); });
+  modal.addEventListener('click', function(e){ if (e.target === modal) modal.close(); });
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var email = form.email.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      form.email.focus();
+      return;
+    }
+    error.style.display = 'none';
+    submitBtn.disabled = true;
+    fetch('https://formspree.io/f/mzdobdle', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, name: form.name.value.trim(), source: 'cloud-trial-waitlist' })
+    }).then(function(res){
+      if (!res.ok) throw new Error('formspree ' + res.status);
+      wrap.style.display = 'none';
+      success.style.display = 'block';
+      form.reset();
+    }).catch(function(){
+      error.style.display = 'block';
+    }).finally(function(){
+      submitBtn.disabled = false;
+    });
+  });
 })();
 </script>
 
