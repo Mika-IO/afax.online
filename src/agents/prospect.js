@@ -19,6 +19,7 @@ export const prospect = new Agent({
 export async function cmd(args) {
   if (args._[0] === 'source') return sourceReal(args);
   if (args._[0] === 'verify') return verifyEmail(args);
+  if (args._[0] === 'import') return importLeads(args);
   const target = args.target || args._[0];
   const limit = Math.min(parseInt(args.limit || '10', 10) || 10, 50);
   if (!target) {
@@ -56,6 +57,8 @@ export async function cmd(args) {
     saved.push(rec);
   }
   prospect.note(`Sourced ${saved.length} leads for "${target}".`);
+  const { emit } = await import('../events.js');
+  if (saved.length) await emit('lead.new', { count: saved.length, target, email: saved[0]?.email || '', name: saved[0]?.name || '' });
 
   table(
     ['Score', 'Name', 'Title', 'Company', 'Signal'],
@@ -90,6 +93,8 @@ async function sourceReal(args) {
     return rec;
   });
   prospect.note(`Sourced ${saved.length} REAL contacts @ ${domain}.`);
+  const { emit } = await import('../events.js');
+  if (saved.length) await emit('lead.new', { count: saved.length, target: domain, email: saved[0]?.email || '', name: saved[0]?.name || '' });
   table(
     ['Score', 'Name', 'Title', 'Email', 'Verified'],
     saved.map((l) => [scoreBadge(l.score), l.name, truncate(l.title, 20), l.email, l.verified ? c.green('✓') : c.dim('?')])
@@ -106,6 +111,32 @@ async function verifyEmail(args) {
   if (!leadsApi.status().connected) return warn('Lead sourcing not connected. afax connect leads');
   const r = await spin(`Verifying ${email}`, () => leadsApi.verify({ email }));
   ok(`${email} → ${c.bold(r.status || 'unknown')} (score ${r.score ?? '—'})`);
+}
+
+// Import leads from a CSV export (LinkedIn, Apollo, generic).
+// afax prospect import leads.csv
+async function importLeads(args) {
+  const file = args._[1] || args.file;
+  if (!file) return warn('Usage: afax prospect import leads.csv');
+  const { readFileSync, existsSync } = await import('node:fs');
+  if (!existsSync(file)) return warn(`No such file: ${file}`);
+  const { csvToLeads } = await import('../csv.js');
+  const rows = csvToLeads(readFileSync(file, 'utf8'));
+  if (!rows.length) return warn('No leads recognized. Need a header row with name/email/company columns.');
+
+  header(`${prospect.emoji} Prospect`, `Importing ${rows.length} leads from ${file}`);
+  const existing = new Set(read('leads', []).map((l) => l.email).filter(Boolean));
+  const saved = [];
+  for (const l of rows) {
+    if (l.email && existing.has(l.email)) continue;
+    const rec = add('leads', { ...l, target: 'import', status: 'new', verified: false });
+    upsertContact(rec);
+    saved.push(rec);
+  }
+  prospect.note(`Imported ${saved.length} leads from ${file}.`);
+  const { emit } = await import('../events.js');
+  if (saved.length) await emit('lead.new', { count: saved.length, target: 'import', email: saved[0]?.email || '', name: saved[0]?.name || '' });
+  ok(`${saved.length} imported (${rows.length - saved.length} duplicates skipped) → CRM. Next: ${c.cyan('afax outreach --channel email')}`);
 }
 
 function upsertContact(lead) {

@@ -76,6 +76,9 @@ async function image(args) {
   add('content', { format: 'image', topic: prompt, path: out.path });
   content.note(`Generated image for "${prompt.slice(0, 40)}".`);
   ok(`Saved → ${c.bold(out.path)}`);
+  const hosted = media.hostedUrl(out.path);
+  if (hosted) info(`Public URL (via afax serve): ${c.bold(hosted)}`);
+  else dim('  Tip: set integrations.server.publicUrl + run afax serve to get a public URL for Instagram.');
 }
 
 export function list() {

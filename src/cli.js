@@ -21,7 +21,7 @@ import * as context from './agents/context.js';
 import * as outreach from './agents/outreach.js';
 import * as deploy from './agents/deploy.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 // ---- arg parsing -----------------------------------------------------------
 export function parse(argv) {
@@ -54,10 +54,30 @@ export async function dispatch(argv) {
 
   switch (cmd) {
     case undefined:
+      // Plain `afax` in a terminal with an LLM → conversational session.
+      if (process.stdin.isTTY && hasLLM()) {
+        const { repl } = await import('./chat.js');
+        return repl();
+      }
+      return help();
     case 'help':
     case '--help':
     case '-h':
       return help();
+    case 'chat': {
+      const { repl } = await import('./chat.js');
+      return repl();
+    }
+    case 'ask': {
+      const { ask } = await import('./chat.js');
+      return ask(args);
+    }
+    case 'serve': {
+      const { cmd: serve } = await import('./server.js');
+      return serve(args);
+    }
+    case 'inbox':
+      return inboxCmd();
     case 'version':
     case '--version':
     case '-v':
@@ -158,6 +178,15 @@ function configCmd(args) {
   warn('Usage: afax config show|get <path>|set <path> <value>|path');
 }
 
+function inboxCmd() {
+  header('📥 Inbox', 'Inbound messages (via afax serve)');
+  const msgs = read('inbox', []).slice(-20);
+  if (!msgs.length) return info('Empty. Wire webhooks to `afax serve` — docs: server.');
+  for (const m of msgs) {
+    log(`  ${c.dim(m.createdAt?.slice(0, 16).replace('T', ' ') || '')} ${c.orange('[' + m.channel + ']')} ${c.bold(m.name || m.from)}: ${String(m.text).slice(0, 100)}${m.repliedAt ? c.green('  ↩ replied') : ''}`);
+  }
+}
+
 function memoryCmd(args) {
   if (args._[0] === 'clear') {
     forgetAll();
@@ -182,6 +211,10 @@ function help() {
   log('  ' + c.dim('Autonomous Force for Automation eXecution · v' + VERSION));
   log('  ' + c.dim('Your company on autopilot with AI.'));
   log('');
+  log(c.bold('  TALK'));
+  row('afax  (no command)', 'Chat — natural language, runs commands for you');
+  row('ask "<question>"', 'One-shot natural-language question (scriptable)');
+  log('');
   log(c.bold('  SETUP'));
   row('init', 'Interactive setup (provider, model, business profile)');
   row('context ingest <url>', 'Learn your company from its website');
@@ -200,6 +233,7 @@ function help() {
   row('🚀 marketing channel list', '16 acquisition channels');
   row('🚀 marketing campaign --channel <k> --goal "<g>"', 'Design a campaign');
   row('🚀 marketing publish --platform <p> [--live]', 'Post to FB/IG/Telegram/Slack…');
+  row('🚀 marketing ads --goal "<g>" --budget <n>', 'Meta paid-ads campaign (paused)');
   row('💰 sales pipeline [--deal "<n>" --value <v>]', 'Pipeline & deals');
   row('💰 sales followup --deal "<n>"', 'AI follow-up message');
   row('✍️  content blog|email|post --topic "<t>"', 'Generate content');
@@ -210,7 +244,10 @@ function help() {
   row('🚀 deploy --src ./dist [--live]', 'Ship to your VPS over SSH');
   log('');
   log(c.bold('  AUTONOMY'));
+  row('run [--execute]', 'Orchestrator plans & acts');
   row('schedule "<when>" --do "<cmd>"', 'NL recurring tasks (cron-ready)');
+  row('serve [--port 8787]', 'Inbound: webhooks, auto-reply, asset hosting');
+  row('inbox', 'Inbound messages received by the server');
   row('memory', 'What the agents remember');
   log('');
   log('  ' + c.dim('Outbound is dry-run until: ') + c.cyan('afax config set live true'));

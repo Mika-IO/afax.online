@@ -23,11 +23,20 @@ Without an LLM key the command still works, generating clearly-labeled template 
 afax prospect source acme.com --limit 10
 ```
 
-Queries the [Hunter.io](https://hunter.io) Domain Search API and returns **real** people at that company: name, title, verified business email, confidence score and department signal. Requires the [leads integration](#/leads):
+Queries [Hunter.io](https://hunter.io) (or [Apollo](https://apollo.io) — pick the driver) and returns **real** people at that company: name, title, verified business email, confidence score and signal. Requires the [leads integration](#/leads):
 
 ```bash
-afax connect leads          # or: export HUNTER_API_KEY=...
+afax connect leads          # driver hunter|apollo + key
+# or: export HUNTER_API_KEY=...  /  export APOLLO_API_KEY=...
 ```
+
+## Import from CSV (LinkedIn, Apollo, anything)
+
+```bash
+afax prospect import leads.csv
+```
+
+Zero-dependency CSV parser that recognizes common headers (`First Name`/`Last Name`, `Full Name`, `Email`, `Company`/`Organization`, `Position`/`Title`) — LinkedIn connection exports and Apollo exports work as-is. Deduplicates by email against existing leads, mirrors everything into the CRM, and fires the `lead.new` [event](#/automation).
 
 ## Verify a single email
 

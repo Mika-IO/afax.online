@@ -79,3 +79,41 @@ test('export: redacts secrets by default', async () => {
   const exp2 = buildExport('secret-co', { withSecrets: true });
   assert.equal(exp2.profile.integrations.email.apiKey, 'super-secret');
 });
+
+test('events: trigger matching + placeholder fill', async () => {
+  const { matches, fill } = await import('../src/events.js');
+  assert.ok(matches('lead.new', 'new lead'));
+  assert.ok(matches('lead.new', 'When a NEW LEAD arrives'));
+  assert.ok(matches('deal.won', 'deal won'));
+  assert.ok(matches('message.received', 'inbound'));
+  assert.ok(matches('payment.received', 'invoice paid'));
+  assert.ok(!matches('lead.new', 'deal won'));
+  assert.equal(fill('crm note {{email}} "{{name}} replied"', { email: 'a@b.c', name: 'Jane' }), 'crm note a@b.c "Jane replied"');
+  assert.equal(fill('x {{missing}} y', {}), 'x  y');
+});
+
+test('csv: parse quoted fields and map LinkedIn-style headers', async () => {
+  const { parseCSV, csvToLeads } = await import('../src/csv.js');
+  const rows = parseCSV('a,"b,c",d\n"e ""q""",f,g\n');
+  assert.deepEqual(rows, [['a', 'b,c', 'd'], ['e "q"', 'f', 'g']]);
+  const leads = csvToLeads(
+    'First Name,Last Name,Email Address,Company,Position\nJane,Doe,jane@acme.com,Acme,CEO\n,,no-name@x.io,X,\n'
+  );
+  assert.equal(leads.length, 2);
+  assert.equal(leads[0].name, 'Jane Doe');
+  assert.equal(leads[0].email, 'jane@acme.com');
+  assert.equal(leads[0].company, 'Acme');
+  assert.equal(leads[1].name, 'no-name');
+});
+
+test('stripe: webhook signature verification', async () => {
+  const { verifyStripe } = await import('../src/server.js');
+  const { createHmac } = await import('node:crypto');
+  const payload = '{"type":"checkout.session.completed"}';
+  const secret = 'whsec_test';
+  const t = '1700000000';
+  const v1 = createHmac('sha256', secret).update(`${t}.${payload}`).digest('hex');
+  assert.ok(verifyStripe(payload, `t=${t},v1=${v1}`, secret));
+  assert.ok(!verifyStripe(payload, `t=${t},v1=${'0'.repeat(64)}`, secret));
+  assert.ok(!verifyStripe(payload, undefined, secret));
+});

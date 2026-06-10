@@ -1,6 +1,6 @@
 {
   "name": "afax",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AFAX — Autonomous Force for Automation eXecution. Your company on autopilot with AI.",
   "type": "module",
   "bin": {

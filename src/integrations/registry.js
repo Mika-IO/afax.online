@@ -6,8 +6,9 @@ import * as meta from './meta.js';
 import * as messaging from './messaging.js';
 import * as leads from './leads.js';
 import * as media from './media.js';
+import * as payments from './payments.js';
 
-export { email, meta, messaging, leads, media };
+export { email, meta, messaging, leads, media, payments };
 
 // Aggregate connection status for `afax connections`.
 export function connections() {
@@ -24,8 +25,9 @@ export function connections() {
     ['Telegram', msg.telegram, 'Bot API'],
     ['Slack', msg.slack, 'Webhook/Bot'],
     ['Discord', msg.discord, 'Webhook'],
-    ['Leads (Hunter)', l.connected, l.driver],
+    ['Leads', l.connected, l.driver],
     ['Media (images)', md.connected, `${md.driver} · ${md.model}`],
+    ['Payments (Stripe)', payments.status().connected, payments.status().webhook ? 'API + webhook' : 'API'],
   ];
 }
 

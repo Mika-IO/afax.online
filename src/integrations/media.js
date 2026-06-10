@@ -1,6 +1,6 @@
 // Real image generation via an OpenAI-compatible images endpoint.
 // Works with OpenAI (gpt-image-1 / dall-e-3) and compatible providers.
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { integration } from '../config.js';
 import { AFAX_HOME } from '../store.js';
@@ -11,6 +11,21 @@ const ASSET_DIR = join(AFAX_HOME, 'assets');
 export function status() {
   const m = integration('media');
   return { connected: !!m.apiKey, driver: m.driver, model: m.model };
+}
+
+// Public URL for a local asset, served by `afax serve` at /assets/<file>.
+// Copies the file into the assets dir if it lives elsewhere.
+// Returns '' when integrations.server.publicUrl is not configured.
+export function hostedUrl(localPath) {
+  const srv = integration('server');
+  if (!srv?.publicUrl) return '';
+  const name = localPath.split('/').pop();
+  const dest = join(ASSET_DIR, name);
+  if (!existsSync(dest) && existsSync(localPath)) {
+    if (!existsSync(ASSET_DIR)) mkdirSync(ASSET_DIR, { recursive: true });
+    copyFileSync(localPath, dest);
+  }
+  return srv.publicUrl.replace(/\/$/, '') + '/assets/' + encodeURIComponent(name);
 }
 
 // generateImage({ prompt, size }) -> { path } saved PNG.

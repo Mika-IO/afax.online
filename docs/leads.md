@@ -1,19 +1,21 @@
-# Integration — Lead sourcing (Hunter.io)
+# Integration — Lead sourcing (Hunter.io / Apollo)
 
-Turns [Prospect](#/prospect) from "plausible AI profiles" into **real, verifiable business contacts**. Backed by the Hunter.io API.
+Turns [Prospect](#/prospect) from "plausible AI profiles" into **real, verifiable business contacts**. Two drivers: **Hunter.io** (domain search + email verification) and **Apollo.io** (people search).
 
 ## 1. Get a key
 
-Create an account at [hunter.io](https://hunter.io) — the free tier includes monthly searches/verifications to start with.
+- [hunter.io](https://hunter.io) — free tier includes monthly searches/verifications.
+- [apollo.io](https://apollo.io) — API key from Settings → Integrations → API.
 
 ## 2. Connect
 
 ```bash
-afax connect leads
-# or: export HUNTER_API_KEY=...
+afax connect leads            # driver: hunter|apollo, then the key
+# or: export HUNTER_API_KEY=...   (auto-selects hunter)
+# or: export APOLLO_API_KEY=...   (auto-selects apollo)
 ```
 
-`afax connections` shows `Leads (Hunter) ●` once set.
+`afax connections` shows `Leads ●` once set.
 
 ## 3. Source real contacts
 
@@ -39,7 +41,9 @@ afax prospect verify jane@acme.com
 # → jane@acme.com → deliverable (score 92)
 ```
 
-Calls Hunter **Email Verifier**. Statuses: `deliverable`, `risky`, `undeliverable`, `unknown`. Verify before going `--live` on outreach — bounces hurt your sender reputation.
+Calls Hunter **Email Verifier** (Hunter driver only — Apollo marks verification in the search results instead). Statuses: `deliverable`, `risky`, `undeliverable`, `unknown`. Verify before going `--live` on outreach — bounces hurt your sender reputation.
+
+Prefer importing lists you already have? See [`prospect import` CSV](#/prospect).
 
 ## Pipeline into outreach
 

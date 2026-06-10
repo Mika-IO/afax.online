@@ -20,12 +20,15 @@ const FIELDS = {
     ['pageId', 'Facebook Page ID'],
     ['igUserId', 'Instagram Business account ID'],
     ['whatsappPhoneId', 'WhatsApp Cloud phone-number ID'],
+    ['adAccountId', 'Ad account ID (paid ads, digits only)'],
   ],
   telegram: [['botToken', 'Bot token'], ['chatId', 'Default chat ID']],
   slack: [['webhookUrl', 'Incoming webhook URL']],
   discord: [['webhookUrl', 'Webhook URL']],
-  leads: [['apiKey', 'Hunter.io API key']],
+  leads: [['driver', 'Driver (hunter|apollo)'], ['apiKey', 'API key']],
   media: [['apiKey', 'Images API key'], ['baseUrl', 'Base URL'], ['model', 'Model']],
+  stripe: [['secretKey', 'Stripe secret key (sk_...)'], ['webhookSecret', 'Webhook signing secret (whsec_..., optional)']],
+  server: [['port', 'Port (default 8787)'], ['publicUrl', 'Public base URL (https://your-host)'], ['autoreply', 'AI auto-reply to inbound (true|false)'], ['verifyToken', 'Meta webhook verify token']],
   deploy: [['host', 'VPS host'], ['user', 'SSH user'], ['path', 'Remote path'], ['key', 'SSH key path (optional)']],
 };
 
@@ -63,7 +66,7 @@ export function connections() {
     connStatus().map(([name, ready, via]) => [name, ready ? c.green('● connected') : c.dim('○ not set'), via])
   );
   log('');
-  dim('  Connect one:  afax connect email | meta | telegram | slack | discord | leads | media | deploy');
+  dim('  Connect one:  afax connect email | meta | telegram | slack | discord | leads | media | stripe | server | deploy');
 }
 
 function coerce(v) {

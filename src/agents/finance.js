@@ -38,11 +38,34 @@ function record(coll, args, [labelKey]) {
   ok(`${coll === 'revenue' ? 'Revenue' : 'Expense'} booked: ${money(amount)} · ${rec[labelKey]}`);
 }
 
-function invoice(args) {
+// afax finance invoice --to "Acme" --amount 1500 [--live]
+// With Stripe connected + both live gates: also creates a real payment link.
+// Pair with `afax serve` so /webhook/stripe marks it paid automatically.
+async function invoice(args) {
   const amount = Number(args.amount);
-  if (!args.to || !amount) return warn('Usage: afax finance invoice --to "Acme" --amount 1500');
-  const rec = add('invoices', { to: args.to, amount, status: 'sent', number: 'INV-' + Date.now().toString(36).toUpperCase() });
+  if (!args.to || !amount) return warn('Usage: afax finance invoice --to "Acme" --amount 1500 [--live]');
+  const number = 'INV-' + Date.now().toString(36).toUpperCase();
+
+  let linkUrl = '', linkId = '';
+  const { payments } = await import('../integrations/registry.js');
+  const { isLive } = await import('../config.js');
+  if (payments.status().connected && args.live && isLive()) {
+    const link = await spin('Creating Stripe payment link', () =>
+      payments.createPaymentLink({ name: `${args.to} — ${number}`, amount, invoiceNumber: number })
+    );
+    linkUrl = link.url;
+    linkId = link.id;
+  }
+
+  const rec = add('invoices', { to: args.to, amount, status: 'sent', number, linkUrl, linkId });
+  finance.note(`Invoice ${number} → ${args.to} (${money(amount)})${linkUrl ? ' with Stripe link' : ''}.`);
   ok(`Invoice ${c.bold(rec.number)} → ${args.to} · ${money(amount)} (status: sent)`);
+  if (linkUrl) {
+    info(`Payment link: ${c.bold(linkUrl)}`);
+    info(`Run ${c.cyan('afax serve')} so the Stripe webhook marks it paid + books revenue automatically.`);
+  } else if (payments.status().connected && !(args.live && isLive())) {
+    info(`Stripe is connected but dry-run. Real payment link: ${c.cyan('afax config set live true')} + ${c.cyan('--live')}.`);
+  }
 }
 
 async function report() {

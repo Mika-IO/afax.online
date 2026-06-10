@@ -55,7 +55,7 @@ export function find(name, pred) {
 export const COLLECTIONS = [
   'leads', 'contacts', 'crm_notes', 'deals', 'messages', 'posts',
   'campaigns', 'channels', 'content', 'flows', 'schedule',
-  'revenue', 'expenses', 'invoices', 'memory',
+  'revenue', 'expenses', 'invoices', 'memory', 'inbox',
 ];
 
 export function cuid() {

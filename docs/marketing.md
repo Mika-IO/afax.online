@@ -65,7 +65,27 @@ afax marketing publish --platform instagram --topic "launch" \
 
 Without `--live` (or with global `live` off) the post is rendered in the terminal as a dry-run and saved to the `posts` collection — nothing is published.
 
+> **Note:** A **local** image path works too — with [`afax serve`](#/server) running and `publicUrl` set, AFAX hosts the file and uses the public URL automatically (this is how generated images reach Instagram in one command).
+
 Platform setup guides: [Meta (FB/IG)](#/meta) · [Telegram / Slack / Discord](#/messaging).
+
+## Paid ads (Meta)
+
+```bash
+afax marketing ads --goal "trial signups from dentists" --budget 20
+afax config set live true
+afax marketing ads --goal "trial signups from dentists" --budget 20 --live
+```
+
+The agent designs the campaign (name, objective, audience, headline, primary text). Dry-run saves it as a draft; **live** creates a real campaign **+ ad set** in your Meta ad account via the Marketing API — always **PAUSED**, with your daily budget, so nothing spends until you add creative and activate it in Ads Manager.
+
+| Flag | Meaning | Default |
+| --- | --- | --- |
+| `--goal` | what the campaign should achieve | — |
+| `--budget` | daily budget in USD (set on the ad set) | 10 |
+| `--live` | create in Meta Ads (needs global `live` too) | off |
+
+Requires `accessToken` + `adAccountId` in the [Meta integration](#/meta) (token needs `ads_management`).
 
 ## Typical loop
 

@@ -1,6 +1,6 @@
-# 🤖 Automation — flows
+# 🤖 Automation — flows & event triggers
 
-Flows are AFAX's Make/Zapier layer: named sequences of CLI subcommands that run in order. Anything you can type, a flow can run — which means flows can drive every agent, including the orchestrator itself.
+Flows are AFAX's Make/Zapier layer: named sequences of CLI subcommands that run in order — manually, on a schedule, or **automatically when events fire** (new lead, deal won, inbound reply, payment). Anything you can type, a flow can run — which means flows can drive every agent, including the orchestrator itself.
 
 ## Anatomy of a flow
 
@@ -29,11 +29,31 @@ afax automation flow rm "welcome"
 
 Each step is dispatched through the regular CLI router. A failing step is reported and the flow **continues** with the next step. Run counts and last-run timestamps are tracked.
 
-## Triggers
+## Event triggers — flows fire automatically
 
-The `--trigger` field is a label describing *when you intend* the flow to run (`"new lead"`, `"weekly"`, `"manual"`). Execution is currently manual (`flow run`) or scheduled — event-driven triggers (webhooks firing flows automatically) are on the [roadmap](#/roadmap).
+The `--trigger` field is matched against real events emitted by the agents. When an event fires, every flow whose trigger matches runs immediately:
 
-To run a flow on a schedule:
+| Event | Emitted when | Trigger phrases that match |
+| --- | --- | --- |
+| `lead.new` | `prospect` saves new leads (AI, Hunter/Apollo, CSV import) | "new lead", "lead added" |
+| `contact.new` | `crm contact add` | "new contact" |
+| `deal.won` | `sales move --stage won` | "deal won", "closed won" |
+| `message.received` | inbound message hits [`afax serve`](#/server) | "new message", "inbound", "reply" |
+| `payment.received` | Stripe webhook confirms a payment | "payment", "invoice paid" |
+
+Steps can use `{{placeholders}}` filled from the event data:
+
+```bash
+afax automation flow add "on-won" --trigger "deal won" \
+  --steps "content post --topic 'we just closed {{deal}}'; finance report"
+
+afax automation flow add "on-reply" --trigger "new message" \
+  --steps "crm note {{email}} 'replied via {{channel}}: {{text}}'"
+```
+
+Available fields: `lead.new` → `count, target, email, name` · `deal.won` → `deal, value` · `contact.new` → `email, name, company` · `message.received` → `channel, from, name, email, text` · `payment.received` → `amount, email, source`.
+
+A re-entrancy guard (depth 2) stops flows that emit events from looping forever. Triggers that match nothing (`"manual"`, `"weekly"`) simply never auto-fire — run those by hand or on a schedule:
 
 ```bash
 afax schedule "every day at 08:00" --do "automation flow run welcome"

@@ -24,7 +24,7 @@ export async function cmd(args) {
   warn('Usage: afax crm contact add "email" | contact list | contact show "email" | note "email" "text"');
 }
 
-function contactCmd(args) {
+async function contactCmd(args) {
   const action = args._[1];
   if (action === 'add') {
     const email = args._[2] || args.email;
@@ -45,6 +45,8 @@ function contactCmd(args) {
     write('contacts', contacts);
     crm.note(`Added contact ${email} (${rec.company}).`);
     ok(`Contact added: ${c.bold(rec.name)} <${email}> · ${rec.stage}`);
+    const { emit } = await import('../events.js');
+    await emit('contact.new', { email, name: rec.name, company: rec.company });
     return;
   }
   if (action === 'show') {

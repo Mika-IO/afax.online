@@ -9,10 +9,12 @@ One connector covers the Meta Graph API: Facebook Page posts, Instagram publishi
    - `pages_manage_posts` — post to a Facebook Page
    - `instagram_content_publish` — publish to an Instagram Business account
    - `whatsapp_business_messaging` — send WhatsApp Cloud messages
+   - `ads_management` — create paid-ads campaigns
 3. Collect the IDs:
    - **Page ID** (Facebook Page)
    - **IG user ID** (Instagram Business account linked to the page)
    - **WhatsApp phone-number ID** (from the WhatsApp Cloud setup)
+   - **Ad account ID** (digits only, from Ads Manager — for `marketing ads`)
 
 You only need the pieces for the surfaces you'll use — Facebook-only is fine.
 
@@ -24,6 +26,7 @@ afax connect meta
 # pageId:           (Facebook posts)
 # igUserId:         (Instagram)
 # whatsappPhoneId:  (WhatsApp)
+# adAccountId:      (paid ads)
 ```
 
 Or `export META_ACCESS_TOKEN=EAAG...` and set the IDs via `afax config set integrations.meta.pageId ...`.
@@ -43,7 +46,12 @@ afax config set live true
 afax outreach --channel whatsapp --live
 ```
 
-> **Note:** **Instagram requires a public image URL** — not a local file. Generate art with `afax content image`, host the PNG anywhere public (S3, your site, an image host), then pass `--image`. Automatic hosting is on the [roadmap](#/roadmap).
+> **Note:** **Instagram requires a public image URL.** With [`afax serve`](#/server) running and `publicUrl` set, a local `--image` path is hosted automatically — generated images publish in one command.
+
+## Paid ads & inbound WhatsApp
+
+- `afax marketing ads --goal "..." --budget 20 --live` creates a **paused** campaign + ad set in your ad account — details in [Marketing](#/marketing).
+- Point your app's WhatsApp webhook at [`afax serve`](#/server) (`/webhook/meta`) for inbound messages, inbox and AI auto-reply.
 
 ## Troubleshooting
 

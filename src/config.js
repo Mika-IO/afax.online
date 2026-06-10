@@ -21,13 +21,15 @@ const WS_DEFAULTS = {
   business: { name: '', icp: '', offer: '', tone: 'direct, confident, helpful', website: '' },
   integrations: {
     email: { driver: 'resend', from: '', apiKey: '', host: '', port: 465, user: '', pass: '' },
-    meta: { accessToken: '', graphVersion: 'v21.0', pageId: '', igUserId: '', whatsappPhoneId: '' },
+    meta: { accessToken: '', graphVersion: 'v21.0', pageId: '', igUserId: '', whatsappPhoneId: '', adAccountId: '' },
     telegram: { botToken: '', chatId: '' },
     slack: { webhookUrl: '', botToken: '' },
     discord: { webhookUrl: '' },
     leads: { driver: 'hunter', apiKey: '' },
     media: { driver: 'openai', apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-image-1' },
     deploy: { host: '', user: '', path: '', key: '' },
+    stripe: { secretKey: '', webhookSecret: '' },
+    server: { port: 8787, publicUrl: '', autoreply: false, verifyToken: 'afax' },
   },
 };
 
@@ -61,7 +63,11 @@ export function load() {
   if (process.env.TELEGRAM_BOT_TOKEN) ig.telegram.botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (process.env.SLACK_WEBHOOK_URL) ig.slack.webhookUrl = process.env.SLACK_WEBHOOK_URL;
   if (process.env.DISCORD_WEBHOOK_URL) ig.discord.webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  if (process.env.HUNTER_API_KEY) ig.leads.apiKey = process.env.HUNTER_API_KEY;
+  if (process.env.HUNTER_API_KEY) { ig.leads.driver = 'hunter'; ig.leads.apiKey = process.env.HUNTER_API_KEY; }
+  if (process.env.APOLLO_API_KEY) { ig.leads.driver = 'apollo'; ig.leads.apiKey = process.env.APOLLO_API_KEY; }
+  if (process.env.STRIPE_SECRET_KEY) ig.stripe.secretKey = process.env.STRIPE_SECRET_KEY;
+  if (process.env.STRIPE_WEBHOOK_SECRET) ig.stripe.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (process.env.AFAX_PUBLIC_URL) ig.server.publicUrl = process.env.AFAX_PUBLIC_URL;
   if (!ig.media.apiKey && process.env.OPENAI_API_KEY && ig.media.driver === 'openai') ig.media.apiKey = process.env.OPENAI_API_KEY;
   if (process.env.AFAX_LIVE === '1' || process.env.AFAX_LIVE === 'true') cache.live = true;
 

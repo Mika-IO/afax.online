@@ -92,7 +92,7 @@ async function followup(args) {
   ok(`Saved. Advance: ${c.cyan('afax sales move --deal "' + deal.name + '" --stage ' + nextStage(deal.stage))}`);
 }
 
-function move(args) {
+async function move(args) {
   const deal = find('deals', (d) => d.name.toLowerCase() === String(args.deal || '').toLowerCase());
   if (!deal) return warn(`Deal "${args.deal}" not found.`);
   const stage = args.stage;
@@ -104,6 +104,8 @@ function move(args) {
     // Record revenue for Finance.
     add('revenue', { source: deal.name, amount: deal.value || 0, type: 'one-time' });
     info(`Revenue ${money(deal.value)} booked → Finance.`);
+    const { emit } = await import('../events.js');
+    await emit('deal.won', { deal: deal.name, value: deal.value || 0 });
   }
 }
 

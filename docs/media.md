@@ -23,15 +23,23 @@ afax content image --prompt "launch banner, bold type" --size 1024x1024
 - Handles both `b64_json` and URL-style provider responses.
 - PNGs are saved to `~/.afax/assets/img-<id>.png` and recorded in the content library (`afax content list`).
 
-## Using generated images
+## Using generated images — automatic hosting
 
-Instagram (and most social APIs) need a **public URL**, not a local file:
+Instagram (and most social APIs) need a **public URL**, not a local file. AFAX hosts your assets itself: run [`afax serve`](#/server) with `integrations.server.publicUrl` set, and:
 
-1. Generate: `afax content image --prompt "..."`.
-2. Host the PNG anywhere public — S3, your website, an image host.
-3. Publish: `afax marketing publish --platform instagram --topic "launch" --image https://... --live`.
+- `content image` prints the public URL right after generating;
+- `marketing publish --image <local path>` hosts the file transparently and publishes the URL.
 
-Automatic hosting of generated assets is on the [roadmap](#/roadmap).
+```bash
+afax content image --prompt "launch hero"
+# ✔ Saved → ~/.afax/assets/img-x1.png
+# › Public URL (via afax serve): https://your-host/assets/img-x1.png
+
+afax marketing publish --platform instagram --topic "launch" \
+  --image ~/.afax/assets/img-x1.png --live
+```
+
+No server? Host the PNG anywhere public (S3, your site) and pass the URL manually.
 
 ## Troubleshooting
 

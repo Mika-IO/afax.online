@@ -15,14 +15,22 @@ Revenue `--type` matters: anything matching *sub / recur / month* counts toward 
 
 > **Note:** Winning a deal (`afax sales move --deal X --stage won`) books its value as one-time revenue automatically — no double entry needed.
 
-## Invoices
+## Invoices — with real Stripe payment links
 
 ```bash
 afax finance invoice --to "Acme" --amount 1500
 # → Invoice INV-MQ8H… → Acme · $1,500 (status: sent)
+
+# With Stripe connected + both live gates: creates a hosted payment link
+afax connect stripe                      # secretKey (+ webhook signing secret)
+afax config set live true
+afax finance invoice --to "Acme" --amount 1500 --live
+# → Payment link: https://buy.stripe.com/...
 ```
 
 Invoices get an auto-generated number and start at status `sent`; unpaid invoices show as **outstanding** in the report.
+
+**Closing the loop:** run [`afax serve`](#/server) and point a Stripe webhook (`checkout.session.completed`) at `/webhook/stripe`. When the customer pays, AFAX marks the invoice `paid`, **books the revenue automatically**, and fires the `payment.received` [event](#/automation) — so a flow can thank the customer or post the win. Keys: `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` env vars also work.
 
 ## The report
 

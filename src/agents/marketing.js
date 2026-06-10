@@ -51,7 +51,8 @@ export async function cmd(args) {
   if (sub === 'campaign') return campaignCmd(args);
   if (sub === 'campaigns') return listCampaigns();
   if (sub === 'publish' || sub === 'post') return publishCmd(args);
-  warn('Usage: afax marketing channel list | campaign --channel <key> --goal "..." | publish --platform facebook --message "..." [--live]');
+  if (sub === 'ads') return adsCmd(args);
+  warn('Usage: afax marketing channel list | campaign --channel <key> --goal "..." | publish --platform facebook --message "..." [--live] | ads --goal "..." --budget 20 [--live]');
 }
 
 function channelCmd(args) {
@@ -136,8 +137,21 @@ async function publishCmd(args) {
     );
   }
 
+  // Instagram needs a public image URL — auto-host local files via `afax serve`.
+  let imageUrl = args.image;
+  if (imageUrl && !/^https?:\/\//.test(imageUrl)) {
+    const { media } = await import('../integrations/registry.js');
+    const hosted = media.hostedUrl(imageUrl);
+    if (hosted) {
+      imageUrl = hosted;
+      info(`Hosting local image → ${hosted}`);
+    } else if (platform === 'instagram') {
+      return warn('Local image but no public URL. Set integrations.server.publicUrl and run afax serve (docs: server).');
+    }
+  }
+
   const { publish } = await import('../integrations/registry.js');
-  const res = await publish({ platform, message, imageUrl: args.image, link: args.link, live });
+  const res = await publish({ platform, message, imageUrl, link: args.link, live });
 
   add('posts', { platform, message, dryRun: res.dryRun, delivered: res.ok && !res.dryRun, error: res.error || '' });
   marketing.note(`Publish ${platform} (live=${res.ok && !res.dryRun}).`);
@@ -152,6 +166,46 @@ async function publishCmd(args) {
   } else {
     warn(`Publish failed: ${res.error}`);
   }
+}
+
+// afax marketing ads --goal "..." [--budget 20] [--live]
+// AI designs the campaign; live mode creates it PAUSED in Meta Ads.
+async function adsCmd(args) {
+  const goal = args.goal || args.topic || 'drive qualified signups';
+  const budget = Number(args.budget || 10);
+  const live = !!args.live;
+  const { isLive } = await import('../config.js');
+  header(`${marketing.emoji} Marketing`, `Paid ads · $${budget}/day · ${live && isLive() ? 'LIVE' : 'dry-run'}`);
+
+  let plan = { name: `Ads: ${goal}`.slice(0, 60), objective: 'OUTCOME_TRAFFIC', audience: '', headline: '', primaryText: '' };
+  if (marketing.online) {
+    plan = await spin('Designing ad campaign', () =>
+      marketing.structured(
+        `Design a Meta paid-ads campaign. Goal: "${goal}". Daily budget: $${budget}.\n` +
+          `Return JSON: {"name","objective":"OUTCOME_TRAFFIC|OUTCOME_LEADS|OUTCOME_SALES|OUTCOME_AWARENESS","audience","headline","primaryText"}`,
+        { maxTokens: 700 }
+      )
+    );
+  }
+  step(plan.name || 'Campaign');
+  if (plan.audience) log('  ' + c.bold('Audience: ') + plan.audience);
+  if (plan.headline) log('  ' + c.bold('Headline: ') + plan.headline);
+  if (plan.primaryText) log('  ' + c.bold('Text:     ') + plan.primaryText);
+  log('  ' + c.bold('Objective:') + ' ' + (plan.objective || 'OUTCOME_TRAFFIC') + '   ' + c.bold('Budget:') + ` $${budget}/day`);
+  log('');
+
+  if (!(live && isLive())) {
+    const rec = add('campaigns', { channel: 'ppc', goal, ...plan, budget, status: 'draft' });
+    info(`Dry-run — saved as draft ${c.dim(rec.id)}. Create for real: ${c.cyan('afax config set live true')} + ${c.cyan('--live')}.`);
+    return;
+  }
+  const { meta } = await import('../integrations/registry.js');
+  const ids = await spin('Creating PAUSED campaign in Meta Ads', () =>
+    meta.adsCreateCampaign({ name: plan.name, objective: plan.objective, dailyBudget: budget })
+  );
+  const rec = add('campaigns', { channel: 'ppc', goal, ...plan, budget, status: 'paused', metaCampaignId: ids.campaignId, metaAdsetId: ids.adsetId });
+  marketing.note(`Created Meta ads campaign "${plan.name}" ($${budget}/day, paused).`);
+  ok(`PAUSED campaign created (${ids.campaignId}). Add creative & activate in Ads Manager. Saved ${c.dim(rec.id)}.`);
 }
 
 function listCampaigns() {
