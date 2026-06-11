@@ -31,6 +31,10 @@ Outbound actions take one extra hop: `src/integrations/registry.js`, the **singl
 bin/afax.js                 entry: env load, error envelope
 src/
 ├── cli.js                  arg parsing, routing, help, config command
+├── chat.js                 NL interface: REPL + ask, runs commands w/ captured output
+├── server.js               inbound HTTP: webhooks, inbox, auto-reply, /assets hosting
+├── events.js               event bus: lead.new/deal.won/… → matching flows run
+├── csv.js                  CSV parser + lead mapping (prospect import)
 ├── config.js               two-layer config (global + workspace), env overrides
 ├── paths.js                ~/.afax layout, workspace slugs (no imports — cycle-free root)
 ├── store.js                JSON collections: read/write/add/update/find, cuid ids
@@ -54,10 +58,11 @@ src/
     ├── registry.js         guarded publish()/dm() dispatch — the safety gate
     ├── http.js             fetch wrapper with JSON + error normalization
     ├── email.js            Resend / SendGrid / raw SMTP-over-TLS client
-    ├── meta.js             FB feed, IG container→publish, WhatsApp Cloud
+    ├── meta.js             FB feed, IG container→publish, WhatsApp Cloud, paid ads
     ├── messaging.js        Telegram / Slack / Discord
-    ├── leads.js            Hunter.io domain search + verifier
-    ├── media.js            OpenAI-compatible image generation
+    ├── leads.js            Hunter.io / Apollo people search + verifier
+    ├── media.js            OpenAI-compatible image generation + hosted URLs
+    ├── payments.js         Stripe payment links (form-encoded, zero-dep)
     └── web.js              HTML → readable text (for context ingest)
 ```
 

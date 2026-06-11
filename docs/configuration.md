@@ -88,7 +88,9 @@ AFAX_MODEL=gpt-4o-mini
 | `AFAX_EMAIL_FROM` | Verified sender address |
 | `META_ACCESS_TOKEN` | Meta Graph token (FB / IG / WhatsApp) |
 | `TELEGRAM_BOT_TOKEN` / `SLACK_WEBHOOK_URL` / `DISCORD_WEBHOOK_URL` | Messaging credentials |
-| `HUNTER_API_KEY` | Hunter.io lead sourcing |
+| `HUNTER_API_KEY` / `APOLLO_API_KEY` | Lead sourcing (auto-selects the driver) |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe payments + webhook verification |
+| `AFAX_PUBLIC_URL` | Public base URL of `afax serve` (asset hosting) |
 
 ## Key precedence
 

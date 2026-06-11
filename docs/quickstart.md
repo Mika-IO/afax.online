@@ -81,14 +81,28 @@ afax finance revenue --source "Acme" --amount 99 --type subscription
 afax finance report
 ```
 
-## 8. Make it autonomous
+## 8. Or just talk to it
+
+Skip memorizing commands — plain `afax` opens a conversational session that runs everything above for you:
+
+```text
+$ afax
+❯ source 10 leads for dental clinics and draft cold emails for the best 5
+⏺ afax prospect --target "dental clinics" --limit 10
+⏺ afax outreach --channel email --limit 5
+● Done — 10 leads scored and saved, 5 personalized drafts ready (dry-run)…
+```
+
+Details: [Chat](#/chat).
+
+## 9. Make it autonomous
 
 ```bash
 afax config set autonomy execute
 afax schedule "every day at 09:00" --do "run --execute"
 ```
 
-Then wire the scheduler to cron for true 24/7 operation — see [Running on a VPS](#/vps).
+Then wire the scheduler to cron — and run [`afax serve`](#/server) so replies, payments and webhooks flow back in. Full guide: [Running on a VPS](#/vps).
 
 ## What next
 

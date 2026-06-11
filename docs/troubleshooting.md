@@ -18,6 +18,9 @@ afax config path                # where the data actually lives
 | `Model did not return parseable JSON` | Weak model for structured output. Try a stronger one (`afax config set providers.openai.model gpt-4o`), or simply re-run |
 | Cannot reach Ollama | `ollama serve` running? Check `providers.ollama.baseUrl` (default `http://localhost:11434`) |
 | Wrong model being used | `AFAX_MODEL` / `AFAX_PROVIDER` env vars override config silently — unset them |
+| `'max_tokens' is not supported` | Fixed in v0.2 — AFAX retries with `max_completion_tokens` automatically; update AFAX |
+| `afax` opens help instead of chat | Chat needs an LLM **and** a TTY; in scripts/cron use explicit commands or `afax ask` |
+| Webhook arrives but nothing happens | Is `afax serve` running? Check `afax inbox`; auto-reply also needs `autoreply=true` + global `live` |
 
 ## "It didn't send anything"
 

@@ -8,6 +8,14 @@ Every command, flag and default in one page. All commands work as `afax <cmd>` (
 - Quotes work like a shell everywhere — including inside flow steps and `--do` strings.
 - Outbound commands are dry-run unless **both** global `live` and per-command `--live` are set.
 
+## Talk (natural language)
+
+| Command | Description |
+| --- | --- |
+| `afax` | Chat session — natural language, runs commands under the hood ([docs](#/chat)) |
+| `afax chat` | Same, explicit |
+| `afax ask "<question>"` | One-shot NL question, scriptable |
+
 ## Setup & meta
 
 | Command | Description |
@@ -55,8 +63,9 @@ Every command, flag and default in one page. All commands work as `afax <cmd>` (
 | Command | Description |
 | --- | --- |
 | `afax prospect --target "<icp>" [--limit N]` | AI-qualified lead profiles (default 10, max 50) |
-| `afax prospect source <domain> [--limit N]` | Real contacts via Hunter.io |
-| `afax prospect verify <email>` | Email deliverability check |
+| `afax prospect source <domain> [--limit N]` | Real contacts via Hunter.io / Apollo |
+| `afax prospect verify <email>` | Email deliverability check (Hunter) |
+| `afax prospect import <file.csv>` | Import LinkedIn/Apollo/generic CSV exports |
 
 ## Outreach 📨
 
@@ -73,7 +82,8 @@ Every command, flag and default in one page. All commands work as `afax <cmd>` (
 | `afax marketing channel <key> enable\|disable` | Toggle a channel |
 | `afax marketing campaign --channel <key> --goal "<g>"` | AI campaign design |
 | `afax marketing campaigns` | List saved campaigns |
-| `afax marketing publish --platform <p> [--message m] [--topic t] [--image url] [--link url] [--live]` | Post to facebook / instagram / telegram / slack / discord |
+| `afax marketing publish --platform <p> [--message m] [--topic t] [--image url\|path] [--link url] [--live]` | Post to facebook / instagram / telegram / slack / discord (local images auto-hosted via `serve`) |
+| `afax marketing ads --goal "<g>" [--budget N] [--live]` | Meta paid-ads campaign + ad set, created PAUSED |
 
 ## Sales 💰
 
@@ -116,7 +126,7 @@ Every command, flag and default in one page. All commands work as `afax <cmd>` (
 | --- | --- |
 | `afax finance revenue --source "<s>" --amount N [--type subscription]` | Book revenue (recurring types count as MRR) |
 | `afax finance expense --label "<l>" --amount N` | Book expense |
-| `afax finance invoice --to "<who>" --amount N` | Issue invoice |
+| `afax finance invoice --to "<who>" --amount N [--live]` | Issue invoice (+ real Stripe payment link when live) |
 | `afax finance report` | Totals, MRR/ARR, net + AI CFO read-out |
 
 ## Scheduler 🗓️
@@ -128,11 +138,18 @@ Every command, flag and default in one page. All commands work as `afax <cmd>` (
 | `afax schedule run` | Execute everything due (wire to cron) |
 | `afax schedule rm <id>` | Remove |
 
+## Server & inbound
+
+| Command | Description |
+| --- | --- |
+| `afax serve [--port 8787]` | Webhooks (Telegram/WhatsApp/email/Stripe) + `/assets` hosting + auto-reply ([docs](#/server)) |
+| `afax inbox` | Inbound messages received by the server |
+
 ## Integrations & deploy
 
 | Command | Description |
 | --- | --- |
-| `afax connect email\|meta\|telegram\|slack\|discord\|leads\|media\|deploy` | Guided wizard |
+| `afax connect email\|meta\|telegram\|slack\|discord\|leads\|media\|stripe\|server\|deploy` | Guided wizard |
 | `afax connections` | ●/○ per platform + live state |
 | `afax deploy [--src dir] [--run "<remote cmd>"] [--live]` | rsync to your VPS |
 

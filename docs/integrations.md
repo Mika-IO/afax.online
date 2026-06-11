@@ -32,8 +32,10 @@ afax connect meta       # Facebook · Instagram · WhatsApp
 afax connect telegram
 afax connect slack
 afax connect discord
-afax connect leads      # Hunter.io
+afax connect leads      # Hunter.io / Apollo
 afax connect media      # image generation
+afax connect stripe     # payments
+afax connect server     # inbound server: port, public URL, auto-reply
 afax connect deploy     # SSH/rsync target
 ```
 
@@ -53,8 +55,10 @@ All credentials can also come from environment variables (which never touch disk
 | Email | Resend, SendGrid, raw SMTP (TLS 465) | `outreach --channel email` | [Email](#/email) |
 | Meta | Facebook Pages, Instagram, WhatsApp Cloud | `marketing publish`, `outreach --channel whatsapp` | [Meta](#/meta) |
 | Messaging | Telegram, Slack, Discord | `marketing publish`, `outreach --channel telegram` | [Messaging](#/messaging) |
-| Leads | Hunter.io | `prospect source`, `prospect verify` | [Lead sourcing](#/leads) |
+| Leads | Hunter.io, Apollo | `prospect source`, `prospect verify` | [Lead sourcing](#/leads) |
 | Media | OpenAI-compatible images endpoint | `content image` | [Media](#/media) |
+| Payments | Stripe | `finance invoice --live`, `/webhook/stripe` | [Finance](#/finance) · [Server](#/server) |
+| Server | inbound webhooks + asset hosting + auto-reply | `serve`, `inbox` | [Server](#/server) |
 | Deploy | SSH + rsync | `deploy` | [Deploy](#/deploy) |
 
 ## Design notes

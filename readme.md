@@ -29,29 +29,51 @@ installable on a **VPS**, working **24/7** and delivering finished work to the C
 
 AFAX is a **zero-dependency Node.js CLI** where seven specialized AI agents — Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance — operate over **your data** with **your LLM keys**, coordinated by an **orchestrator** with persistent memory that plans and executes the highest-leverage next actions on its own.
 
+You don't memorize commands. Plain `afax` opens a **natural-language session** — talk to your company, and AFAX runs the real commands under the hood, showing each one:
+
+```text
+$ afax
+❯ how are we doing? source 10 leads for dental clinics and draft outreach
+
+⏺ afax status
+⏺ afax prospect --target "dental clinics" --limit 10
+⏺ afax outreach --channel email --limit 5
+
+● Pipeline is $12,000 across 2 deals, MRR $99. I sourced and scored 10
+  leads and drafted 5 personalized cold emails — all dry-run, nothing
+  sent. Want me to preview them?
+```
+
 Platforms like [GoHighLevel](https://www.gohighlevel.com/) showed one tool can replace a stack of marketing/sales SaaS. Agents like [Polsia](https://polsia.com/) and [Hermes](https://hermes-agent.nousresearch.com/) showed AI can actually *run* operations. AFAX rebuilds those ideas the way a developer wants them: a composable CLI, local-first JSON state, cron-native autonomy, and safety gates in front of everything outbound.
 
 ```text
- you (CEO)
-    │  goals, approvals, --live
+ you (CEO) ──── 💬 chat / ask · goals · approvals · --live
+    │
     ▼
  🧠 ORCHESTRATOR ── plans & executes via persistent memory
     │
-    ├── 🎯 Prospect    leads sourced & scored ──► 🤝 CRM
+    ├── 🎯 Prospect    leads sourced, scored, imported ──► 🤝 CRM
     ├── 📨 Outreach    personalized cold email / WhatsApp / Telegram
-    ├── 🚀 Marketing   16 channels · campaigns · publishing
+    ├── 🚀 Marketing   16 channels · campaigns · publishing · paid ads
     ├── ✍️  Content     blog · email · posts · ads · real images
     ├── 💰 Sales       pipeline · weighted forecast · closing ──► 📊 Finance
-    ├── 🤖 Automation  flows wiring agents together
-    └── 📊 Finance     cash flow · MRR/ARR · AI CFO read-out
-    │
-    ▼
- ~/.afax/*.json  ←  all state, plain JSON, on your machine
+    ├── 🤖 Automation  event-triggered flows wiring agents together
+    └── 📊 Finance     cash flow · MRR/ARR · Stripe invoices · AI CFO
+    │            ▲
+    ▼            │ events: lead.new · deal.won · message.received · payment.received
+ ~/.afax/*.json  │
+                 │
+ 🌐 afax serve ──┘  inbound: replies · payments · webhooks · asset hosting · auto-reply
 ```
 
 ## Highlights
 
+- 💬 **Natural language first** — `afax` is a conversational session (think Claude Code for your company); `afax ask "..."` is the scriptable one-shot.
 - 🧠 **Autonomous orchestration** — `afax run --execute`: reads the whole company state, decides the 2–4 highest-leverage moves, executes them, remembers what it did.
+- 🌐 **Inbound 2-way** — `afax serve`: webhooks for Telegram/WhatsApp/email/Stripe, an inbox, AI auto-reply in your brand voice, and public hosting for generated images.
+- 🔔 **Event-driven flows** — `lead.new`, `deal.won`, `message.received`, `payment.received` fire your automation flows the moment they happen.
+- 💳 **Payments** — invoices grow real Stripe payment links; the webhook marks them paid and books revenue automatically.
+- 📈 **Paid ads** — `marketing ads` designs the campaign and creates it (paused) in Meta Ads with your budget.
 - 🏠 **Local-first** — all state in human-readable JSON under `~/.afax/`. Nothing leaves your machine except the API calls you configure.
 - 🔁 **Multi-model** — Anthropic, any OpenAI-compatible endpoint (OpenAI, Groq, OpenRouter, vLLM, LM Studio…), or **Ollama fully offline**. Switch with one command.
 - 🔒 **Safe by default** — every outbound action (email, posts, DMs, deploys) is **dry-run** until two explicit gates are open: global `live` **and** per-command `--live`. Enforced at a single choke-point in the code.
@@ -120,11 +142,14 @@ afax schedule "every day at 09:00" --do "run --execute"
 afax schedule "every day at 18:00" \
   --do "marketing publish --platform telegram --topic 'daily status report' --live"
 
-# one cron line = the whole daemon:
+# one cron line = the outbound heartbeat:
 */15 * * * * afax schedule run
+
+# and the inbound ears (systemd/pm2):
+afax serve        # webhooks · inbox · AI auto-reply · asset hosting
 ```
 
-Install on any cheap VPS and the company plans, prospects, writes and reports around the clock — full guide: **[Running 24/7 on a VPS](https://afax.online/docs.html#/vps)**.
+Install on any cheap VPS and the company plans, prospects, writes, **listens** and reports around the clock — full guide: **[Running 24/7 on a VPS](https://afax.online/docs.html#/vps)**.
 
 ## Safety model
 
@@ -146,20 +171,20 @@ Full docs at **[afax.online/docs.html](https://afax.online/docs.html)** — rend
 | [Introduction](./docs/introduction.md) | [Orchestrator & autonomy](./docs/orchestrator.md) | [Overview & safety](./docs/integrations.md) | [Command reference](./docs/cli.md) |
 | [Installation](./docs/installation.md) | [Company context & memory](./docs/context.md) | [Email](./docs/email.md) · [Meta](./docs/meta.md) | [Architecture](./docs/architecture.md) |
 | [Quick start](./docs/quickstart.md) | [Workspaces](./docs/workspaces.md) | [Telegram/Slack/Discord](./docs/messaging.md) | [Troubleshooting](./docs/troubleshooting.md) |
-| [Configuration](./docs/configuration.md) | [Scheduler](./docs/scheduler.md) · [VPS 24/7](./docs/vps.md) | [Hunter](./docs/leads.md) · [Media](./docs/media.md) · [Deploy](./docs/deploy.md) | [Roadmap](./docs/roadmap.md) · [Contributing](./docs/contributing.md) |
+| [💬 Chat](./docs/chat.md) | [Scheduler](./docs/scheduler.md) · [🌐 Server](./docs/server.md) · [VPS 24/7](./docs/vps.md) | [Hunter/Apollo](./docs/leads.md) · [Media](./docs/media.md) · [Deploy](./docs/deploy.md) | [Roadmap](./docs/roadmap.md) · [Contributing](./docs/contributing.md) |
+| [Configuration](./docs/configuration.md) | | | |
 
 Plus one page per agent: [Prospect](./docs/prospect.md) · [Outreach](./docs/outreach.md) · [Marketing](./docs/marketing.md) · [Sales](./docs/sales.md) · [Content](./docs/content.md) · [CRM](./docs/crm.md) · [Automation](./docs/automation.md) · [Finance](./docs/finance.md) · [Export/import](./docs/export-import.md)
 
 ## Status
 
-AFAX is honest about scope — the full table lives in the [roadmap](./docs/roadmap.md):
+**Roadmap: zeroed.** Every planned capability shipped in v0.2.0 — details in the [roadmap](./docs/roadmap.md):
 
 | Capability | Status |
 | --- | --- |
-| 7 agents, orchestrator, outreach drafting, content & image gen, CRM/sales/finance, flows, scheduler, workspaces | ✅ working |
+| NL chat, 7 agents, orchestrator, outreach drafting, content & image gen + auto-hosting, CRM/sales/finance, event-driven flows, scheduler, inbound server, workspaces | ✅ working |
 | Telegram / Slack / Discord publishing | ✅ working |
-| Email · Meta · WhatsApp · Hunter · SSH deploy | 🔑 needs your keys |
-| Inbound 2-way replies · asset auto-hosting · Stripe · paid-ads APIs · event triggers | 🛠️ planned |
+| Email · Meta (posts, WhatsApp, **paid ads**) · Hunter/Apollo · **Stripe** · SSH deploy | 🔑 needs your keys |
 
 ## Development
 

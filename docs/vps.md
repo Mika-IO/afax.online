@@ -71,7 +71,34 @@ afax schedule "every day at 18:00" \
 afax schedule list
 ```
 
-## 5. Wire cron (the heartbeat)
+## 5. Run the inbound server (the ears)
+
+[`afax serve`](#/server) receives replies (Telegram, WhatsApp, email), Stripe payments and hosts your images. Run it under systemd:
+
+```text
+# /etc/systemd/system/afax-serve.service
+[Unit]
+Description=AFAX inbound server
+After=network.target
+
+[Service]
+User=afax
+EnvironmentFile=/home/afax/.afax-env
+ExecStart=/usr/bin/afax serve
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now afax-serve
+curl -s localhost:8787/health        # {"ok":true}
+```
+
+Put it behind Caddy/Nginx for TLS and set `afax config set integrations.server.publicUrl https://afax.yourdomain.com`.
+
+## 6. Wire cron (the heartbeat)
 
 ```bash
 crontab -e
@@ -90,7 +117,7 @@ Multiple companies:
 */15 * * * * . $HOME/.afax-env; AFAX_WORKSPACE=beta  afax schedule run >> $HOME/.afax/beta.log 2>&1
 ```
 
-## 6. Observe
+## 7. Observe
 
 ```bash
 tail -f ~/.afax/cron.log        # what ran and what it did
@@ -101,7 +128,7 @@ afax schedule list              # next-run times, run counts
 
 For push-style visibility, make reporting part of the routine (step 4) — the evening Telegram message *is* your monitoring.
 
-## 7. Backups
+## 8. Backups
 
 Everything lives under `~/.afax`. Two options:
 

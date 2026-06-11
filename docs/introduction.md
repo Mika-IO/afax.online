@@ -6,6 +6,8 @@ AFAX is a **zero-dependency Node.js CLI** that runs an autonomous AI company fro
 
 Seven specialized agents operate over **your data** and **your LLM keys**, coordinated by an orchestrator with persistent memory. Install it on a laptop or a VPS and it works 24/7, delivering finished work to the CEO: you.
 
+And you don't have to memorize commands: plain `afax` opens a **[natural-language chat](#/chat)** — describe what you want ("find 10 leads and draft outreach"), and AFAX runs the right commands for you, showing each one as it executes.
+
 ## Why AFAX exists
 
 Tools like [GoHighLevel](https://www.gohighlevel.com/) prove that a single platform can replace a dozen marketing/sales SaaS subscriptions. Tools like [Polsia](https://polsia.com/) prove that AI agents can run real company operations end-to-end. AFAX takes both ideas and rebuilds them as something a developer actually wants:
@@ -32,7 +34,7 @@ AFAX covers the full lifecycle of a digital business:
 | 8. Operate | 🤖 Automation | Make/Zapier-style flows wiring agents together |
 | 9. Account | 📊 Finance | Cash flow, MRR/ARR, invoices, AI CFO read-out |
 
-Above all of them sits the **orchestrator** (`afax run`): it reads the whole company state, decides the highest-leverage next actions, and — if you allow it — executes them on its own.
+Above all of them sits the **orchestrator** (`afax run`): it reads the whole company state, decides the highest-leverage next actions, and — if you allow it — executes them on its own. And the loop closes inbound: [`afax serve`](#/server) receives replies, payments and webhooks 24/7, answers with AI when you allow it, and fires your [automation flows](#/automation) on every event.
 
 ## Design principles
 
