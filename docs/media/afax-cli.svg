@@ -1,25 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">
   <style>
-    .t{fill:#e7e7ea}.o{fill:#ff8c1a}.d{fill:#8a8a93}.g{fill:#3fb950}.w{fill:#ffffff;font-weight:600}.f{fill:#5d636e}.b{font-weight:700}
+    .t{fill:#e7e7ea}.o{fill:#ff8c1a}.d{fill:#8a8a93}.w{fill:#ffffff;font-weight:600}.f{fill:#5d636e}.b{font-weight:700}
   </style>
-  <rect x="0.5" y="0.5" width="759" height="419" rx="13" fill="#0d0d0f" stroke="#26262c"/>
+  <rect x="0.5" y="0.5" width="759" height="559" rx="13" fill="#0d0d0f" stroke="#26262c"/>
   <circle cx="26" cy="23" r="6" fill="#ff5f57"/>
   <circle cx="46" cy="23" r="6" fill="#febc2e"/>
   <circle cx="66" cy="23" r="6" fill="#28c840"/>
-  <text x="380" y="28" text-anchor="middle" class="f" font-size="12.5">afax — your company, in natural language</text>
+  <text x="380" y="28" text-anchor="middle" class="f" font-size="12.5">your company on autopilot</text>
   <line x1="0" y1="45" x2="760" y2="45" stroke="#1c1c20"/>
 
-  <text x="26" y="84"><tspan class="o b">▰▰▰ </tspan><tspan class="w">AFAX</tspan><tspan class="d">  ·  acme  ·  openai/gpt-5  ·  ○ dry-run</tspan></text>
+  <!-- ASCII wordmark -->
+  <text text-anchor="middle" class="o b" font-size="19" xml:space="preserve">
+    <tspan x="380" y="96">█████╗ ███████╗ █████╗ ██╗  ██╗</tspan>
+    <tspan x="380" y="121">██╔══██╗██╔════╝██╔══██╗╚██╗██╔╝</tspan>
+    <tspan x="380" y="146">███████║█████╗  ███████║ ╚███╔╝</tspan>
+    <tspan x="380" y="171">██╔══██║██╔══╝  ██╔══██║ ██╔██╗</tspan>
+    <tspan x="380" y="196">██║  ██║██║     ██║  ██║██╔╝ ██╗</tspan>
+    <tspan x="380" y="221">╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝</tspan>
+  </text>
 
-  <text x="26" y="138"><tspan class="o">❯ </tspan><tspan class="t">how are we doing? source 10 leads for dental clinics and draft outreach</tspan></text>
+  <text x="26" y="278"><tspan class="o b">▰▰▰ </tspan><tspan class="w">AFAX</tspan><tspan class="d">  ·  acme  ·  openai/gpt-5  ·  ○ dry-run</tspan></text>
 
-  <text x="40" y="170" class="d">⏺ afax status</text>
-  <text x="40" y="197" class="d">⏺ afax prospect --target "dental clinics" --limit 10</text>
-  <text x="40" y="224" class="d">⏺ afax outreach --channel email --limit 5</text>
+  <text x="26" y="326"><tspan class="o">❯ </tspan><tspan class="t">how are we doing? source 10 leads for dental clinics and draft outreach</tspan></text>
 
-  <text x="26" y="270"><tspan class="o">● </tspan><tspan class="t">Pipeline is $12,000 across 2 deals, MRR $99. I sourced and scored 10</tspan></text>
-  <text x="40" y="297" class="t">leads and drafted 5 personalized cold emails — all dry-run.</text>
-  <text x="40" y="324" class="t">Want me to preview them?</text>
+  <text x="40" y="358" class="d">⏺ afax status</text>
+  <text x="40" y="385" class="d">⏺ afax prospect --target "dental clinics" --limit 10</text>
+  <text x="40" y="412" class="d">⏺ afax outreach --channel email --limit 5</text>
 
-  <text x="40" y="366" class="f">· 2.1k→0.4k tok  ·  $0.012  ·  session $0.012</text>
+  <text x="26" y="458"><tspan class="o">● </tspan><tspan class="t">Pipeline is $12,000 across 2 deals, MRR $99. I sourced and scored 10</tspan></text>
+  <text x="40" y="485" class="t">leads and drafted 5 personalized cold emails — all dry-run.</text>
+  <text x="40" y="512" class="t">Want me to preview them?</text>
+
+  <text x="40" y="540" class="f">· 2.1k→0.4k tok  ·  $0.012  ·  session $0.012</text>
 </svg>

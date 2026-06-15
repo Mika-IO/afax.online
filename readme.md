@@ -1,6 +1,6 @@
 <div align="center">
 
-<img alt="AFAX" src="docs/media/afax-logo.svg" width="360">
+<img alt="AFAX — your company on autopilot" src="docs/media/afax-cli.svg" width="760">
 
 ### Your company on autopilot
 
@@ -9,10 +9,6 @@
 <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-339933?logo=node.js&logoColor=white"> <img alt="deps" src="https://img.shields.io/badge/runtime%20deps-0-ff7a1a"> <img alt="tests" src="https://img.shields.io/badge/tests-passing-46a758"> <img alt="license" src="https://img.shields.io/badge/license-MIT-46a758"> <img alt="models" src="https://img.shields.io/badge/LLM-Anthropic%20%C2%B7%20OpenAI%20%C2%B7%20Ollama-8a63d2">
 
 **[Website](https://afax.online)** · **[Docs](https://afax.online/docs.html)** · **[Quick start](https://afax.online/docs.html#/quickstart)** · **[Run on a VPS](https://afax.online/docs.html#/vps)**
-
-<br>
-
-<img alt="AFAX — natural-language session in the terminal" src="docs/media/afax-cli.svg" width="720">
 
 </div>
 
