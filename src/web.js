@@ -21,8 +21,10 @@
 // whoever holds the token can run any AFAX command and read the workspace.
 import { createServer } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { existsSync, statSync, readFileSync, readdirSync } from 'node:fs';
+import { resolve, relative, join, extname } from 'node:path';
 import { load, save, activeProvider, hasLLM } from './config.js';
-import { read, add, update, remove, COLLECTIONS } from './store.js';
+import { read, add, update, remove, COLLECTIONS, AFAX_HOME } from './store.js';
 import { snapshot } from './orchestrator.js';
 import { monthTotals, allTotals, budgetState } from './usage.js';
 import { PAGE } from './web.page.js';
@@ -31,6 +33,11 @@ import { c, header, ok, info, warn, err, log } from './logger.js';
 const SECRET_RE = /(key|secret|token|pass)$/i;
 const MASK = '__AFAX_SECRET_SET__';
 const COOKIE = 'afax_auth';
+const ASSET_MIME = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.webm': 'video/webm',
+  '.txt': 'text/plain; charset=utf-8', '.json': 'application/json',
+};
 
 // afax web [--port N] [--host H] [--token T]
 export async function cmd(args) {
@@ -279,6 +286,36 @@ async function handle(req, res, ctx) {
 
   if (path === '/api/usage') {
     return send(res, 200, { month: monthTotals(), all: allTotals(), budget: budgetState(), recent: read('usage', []).slice(-25).reverse() });
+  }
+
+  // ---- generated content: list with previewable files ----
+  if (path === '/api/content' && req.method === 'GET') {
+    const base = resolve(AFAX_HOME);
+    const items = read('content', []).slice().reverse().slice(0, 80).map((r) => {
+      let files = [];
+      if (r.path) {
+        try {
+          const st = statSync(r.path);
+          if (st.isDirectory()) files = readdirSync(r.path).map((f) => join(r.path, f));
+          else files = [r.path];
+        } catch {}
+      }
+      files = files
+        .filter((f) => { try { return statSync(f).isFile(); } catch { return false; } })
+        .map((f) => relative(base, f));
+      return { id: r.id, format: r.format, topic: r.topic, createdAt: r.createdAt, body: r.body || '', files };
+    });
+    return send(res, 200, { items });
+  }
+
+  // ---- serve a file from AFAX_HOME (assets/library) for previews ----
+  if (path === '/api/asset' && req.method === 'GET') {
+    const base = resolve(AFAX_HOME);
+    const abs = resolve(base, url.searchParams.get('path') || '');
+    if (abs !== base && !abs.startsWith(base + '/')) return send(res, 403, { error: 'forbidden' }); // path containment
+    if (!existsSync(abs) || !statSync(abs).isFile()) return send(res, 404, { error: 'not found' });
+    res.writeHead(200, { 'content-type': ASSET_MIME[extname(abs).toLowerCase()] || 'application/octet-stream', 'cache-control': 'private, max-age=120' });
+    return res.end(readFileSync(abs));
   }
 
   const dm = path.match(/^\/api\/data\/([a-z_]+)(?:\/([^/]+))?$/);

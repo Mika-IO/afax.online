@@ -186,6 +186,7 @@ export const PAGE = `<!doctype html>
     <nav>
       <button data-tab="chat" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Chat</button>
       <button data-tab="tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Tasks</button>
+      <button data-tab="content"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg> Content</button>
       <button data-tab="integrations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg> Integrations</button>
       <button data-tab="database"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database</button>
       <button data-tab="usage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Usage</button>
@@ -211,6 +212,11 @@ export const PAGE = `<!doctype html>
       <div class="head"><h2>Tasks</h2><p>The company work board — click the dot to move todo → doing → done.</p></div>
       <div class="card"><div class="row"><input id="taskIn" placeholder="New task…  e.g. Draft Q3 outreach sequence" style="margin-top:0"><button class="btn act" id="taskAdd">Add</button></div></div>
       <div id="taskBoard"></div>
+    </section>
+
+    <section id="content" hidden>
+      <div class="head"><h2>Content</h2><p>Everything generated — carousels, memes, posters, reels and copy.</p></div>
+      <div id="contentList"></div>
     </section>
 
     <section id="integrations" hidden>
@@ -295,7 +301,7 @@ function mdfmt(t){
 }
 
 // ---- tabs ----
-var TABS = ["chat","tasks","integrations","database","usage"];
+var TABS = ["chat","tasks","content","integrations","database","usage"];
 document.querySelectorAll(".side nav button").forEach(function(b){ b.onclick = function(){ showTab(b.dataset.tab); }; });
 function showTab(name){
   TABS.forEach(function(t){ el(t).hidden = (t !== name); });
@@ -303,6 +309,7 @@ function showTab(name){
   try { localStorage.setItem("afax_tab", name); } catch(e){}
   if(name === "chat") el("msg").focus();
   if(name === "tasks") loadTasks();
+  if(name === "content") loadContent();
   if(name === "integrations"){ loadIntegrations(); loadConfig(); }
   if(name === "database") loadCollections();
   if(name === "usage") loadUsage();
@@ -321,6 +328,30 @@ function loadWorkspaces(){
       var name = prompt("New company name:"); if(!name) return;
       api("/api/workspaces", { method:"POST", body: JSON.stringify({ name: name }) }).then(function(){ location.reload(); });
     };
+  });
+}
+
+// ---- content (previews of generated assets) ----
+function loadContent(){
+  j("/api/content").then(function(d){
+    var items = d.items || [];
+    if(!items.length){ el("contentList").innerHTML = '<p class="muted">Nothing yet. In Chat: ask me to make a carousel, poster or reel.</p>'; return; }
+    el("contentList").innerHTML = items.map(function(it){
+      var media = (it.files || []).map(function(f){
+        var u = "/api/asset?path=" + encodeURIComponent(f);
+        var ext = f.split(".").pop().toLowerCase();
+        if(["png","jpg","jpeg","webp","gif"].indexOf(ext) >= 0)
+          return '<a href="' + u + '" target="_blank"><img src="' + u + '" loading="lazy" style="width:118px;height:148px;object-fit:cover;border-radius:9px;border:1px solid var(--line)"></a>';
+        if(["mp4","webm"].indexOf(ext) >= 0)
+          return '<video src="' + u + '" controls preload="metadata" style="width:170px;border-radius:9px;border:1px solid var(--line)"></video>';
+        if(ext === "txt")
+          return '<a class="muted" href="' + u + '" target="_blank" style="font-size:12px;align-self:center">' + esc(f.split("/").pop()) + " &#8599;</a>";
+        return "";
+      }).join("");
+      var body = (!media && it.body) ? '<pre style="white-space:pre-wrap;font-size:12.5px;color:var(--ink);margin-top:10px;max-height:300px;overflow:auto">' + esc(it.body.slice(0, 1400)) + "</pre>" : "";
+      return '<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">' + esc(it.format) + " &middot; " + esc((it.topic || "").slice(0, 64)) + '</h3><span class="muted" style="font-size:11px">' + esc((it.createdAt || "").slice(0, 10)) + "</span></div>" +
+        (media ? '<div class="row" style="flex-wrap:wrap;gap:10px;margin-top:12px">' + media + "</div>" : "") + body + "</div>";
+    }).join("");
   });
 }
 

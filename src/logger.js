@@ -31,6 +31,12 @@ export function banner(indent = '  ') {
   for (const line of LOGO) console.log(indent + c.orange(line));
 }
 
+// Clickable terminal hyperlink (OSC 8); falls back to the URL when unsupported.
+export function link(label, url) {
+  if (!useColor) return url || label;
+  return `\x1b]8;;${url}\x1b\\${label}\x1b]8;;\x1b\\`;
+}
+
 export const log = (...a) => console.log(...a);
 export const info = (msg) => console.log(`${c.cyan('›')} ${msg}`);
 export const ok = (msg) => console.log(`${c.green('✔')} ${msg}`);

@@ -8,6 +8,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.4.0] — 2026-06-15
 
 ### Added
+- **See your generated assets.** The CLI now prints a clickable link to the
+  output folder and each file after `content carousel|meme|poster|reel|image`.
+  The web panel gets a **Content** tab that previews everything inline — image
+  grids, playable reels, and copy — served from a path-contained `/api/asset`
+  (auth-gated, AFAX_HOME-jailed) with a `/api/content` listing.
 - **Task board (Polsia-style).** A shared work board the CEO and agents both use:
   `afax task add|list|start|done|reopen|rm` and a **Tasks** tab in the web panel
   (todo → doing → done, click the dot to advance). The chat agent tracks

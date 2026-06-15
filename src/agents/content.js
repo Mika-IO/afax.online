@@ -1,7 +1,7 @@
 // ✍️ Content — autonomous copy, posts, emails, rich assets.
 import { Agent } from './base.js';
 import { add, read } from '../store.js';
-import { c, header, ok, info, warn, spin, log, dim } from '../logger.js';
+import { c, header, ok, info, warn, spin, log, dim, link } from '../logger.js';
 
 export const content = new Agent({
   key: 'content',
@@ -80,7 +80,7 @@ async function image(args) {
   );
   add('content', { format: 'image', topic: prompt, path: out.path });
   content.note(`Generated image for "${prompt.slice(0, 40)}".`);
-  ok(`Saved → ${c.bold(out.path)}`);
+  ok(`Saved → ${link(c.cyan(out.path), 'file://' + out.path)}`);
   const hosted = media.hostedUrl(out.path);
   if (hosted) info(`Public URL (via afax serve): ${c.bold(hosted)}`);
   else dim('  Tip: set integrations.server.publicUrl + run afax serve to get a public URL for Instagram.');
@@ -119,8 +119,8 @@ async function renderMedia(type, args) {
     add('content', { format: t, topic: spec.title || spec.text || spec.slug, path: res.dir });
     content.note(`Rendered ${t}: ${spec.slug}.`);
     log('');
-    ok(`Made ${assets.length} file(s) → ${c.bold(res.dir)}`);
-    for (const f of res.files) log('  ' + c.dim(f));
+    ok(`Made ${assets.length} file(s) — ${link(c.cyan('open folder'), 'file://' + res.dir)}`);
+    for (const f of assets) log('  ' + link(c.cyan(f.split('/').pop()), 'file://' + f) + c.dim('  ' + f));
   } catch (e) {
     warn(e.message);
     if (/Playwright/.test(e.message)) info('One-time setup: ' + c.cyan('npm i playwright && npx playwright install chromium'));
