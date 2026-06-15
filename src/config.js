@@ -14,6 +14,7 @@ const GLOBAL_DEFAULTS = {
   },
   autonomy: 'suggest',
   live: false,
+  budget: { monthly: 0 }, // USD/month LLM cap for the active workspace; 0 = unlimited
   activeWorkspace: 'default',
 };
 
@@ -82,6 +83,7 @@ export function save(cfg) {
     providers: cfg.providers,
     autonomy: cfg.autonomy,
     live: cfg.live,
+    budget: cfg.budget,
     activeWorkspace: cfg.activeWorkspace || cfg.workspace || 'default',
   };
   const ws = { business: cfg.business, integrations: cfg.integrations };

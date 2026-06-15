@@ -18,6 +18,9 @@ const { add, read, update, find } = await import('../src/store.js');
 const { slugify } = await import('../src/paths.js');
 const { createWorkspace, useWorkspace, listSlugs } = await import('../src/workspace.js');
 const { buildExport } = await import('../src/data.js');
+const { fsTool, saySoFar } = await import('../src/chat.js');
+const { costOf, priceOf } = await import('../src/llm/pricing.js');
+const { record, monthTotals, budgetState } = await import('../src/usage.js');
 
 test('parse: flags, values, =, positionals, booleans', () => {
   const a = parse(['prospect', '--target', 'SaaS founders', '--limit=5', 'extra', '--live']);
@@ -26,6 +29,43 @@ test('parse: flags, values, =, positionals, booleans', () => {
   assert.equal(a.target, 'SaaS founders');
   assert.equal(a.limit, '5');
   assert.equal(a.live, true);
+});
+
+test('saySoFar: decodes partial streamed JSON say field', () => {
+  assert.equal(saySoFar('{"say":"Hello wor'), 'Hello wor');           // mid-stream
+  assert.equal(saySoFar('{"say":"Hi there","run":[]}'), 'Hi there');  // closed
+  assert.equal(saySoFar('{"say":"a\\nb\\"c'), 'a\nb"c');              // escapes
+  assert.equal(saySoFar('{"run":[]}'), null);                         // not started
+});
+
+test('fsTool: read-only filesystem inspection', () => {
+  const ls = fsTool(parse(['ls', '.']));
+  assert.match(ls, /package\.json/);
+  assert.match(ls, /src\//);
+  const read = fsTool(parse(['read', 'package.json']));
+  assert.match(read, /"name": "afax"/);
+  const find = fsTool(parse(['find', 'openai', '--in', 'src']));
+  assert.match(find, /openai\.js/);
+  assert.match(fsTool(parse(['read', 'nope.xyz'])), /no such path/);
+  assert.match(fsTool(parse(['warp'])), /unknown fs tool/);
+});
+
+test('pricing: cost by model prefix, fallback for unknown', () => {
+  assert.equal(priceOf('gpt-5').estimated, false);
+  assert.equal(priceOf('some-weird-model').estimated, true);
+  // gpt-5: 1M in @ $1.25 + 1M out @ $10 = $11.25
+  assert.ok(Math.abs(costOf('gpt-5', { input: 1e6, output: 1e6 }) - 11.25) < 1e-9);
+  assert.equal(costOf('llama3.1', { input: 1e6, output: 1e6 }), 0);
+});
+
+test('usage: ledger records, month totals, budget state', () => {
+  record({ provider: 'openai', model: 'gpt-4o-mini', usage: { input: 1e6, output: 1e6 } }); // $0.75
+  const m = monthTotals();
+  assert.equal(m.calls, 1);
+  assert.ok(Math.abs(m.cost - 0.75) < 1e-9);
+  const cfg = { budget: { monthly: 0.5 } };
+  assert.equal(budgetState(cfg).over, true); // 0.75 >= 0.50
+  assert.equal(budgetState({ budget: { monthly: 0 } }).over, false); // unlimited
 });
 
 test('parseJSON: strips fences and surrounding prose', () => {

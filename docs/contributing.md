@@ -45,4 +45,4 @@ The docs are plain markdown in `docs/`, rendered client-side by `docs.html` (Git
 
 ## License note
 
-By contributing you agree your contribution is licensed under the repository's [AFAX Fair License](https://github.com/mika-io/afax.online/blob/main/LICENSE).
+By contributing you agree your contribution is licensed under the repository's [MIT license](https://github.com/mika-io/afax.online/blob/main/LICENSE).

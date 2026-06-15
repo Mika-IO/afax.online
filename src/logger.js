@@ -16,6 +16,21 @@ export const c = {
   orange: wrap('38;5;208'),
 };
 
+// The AFAX wordmark, shared by `afax help` and the chat welcome screen.
+export const LOGO = [
+  '█████╗ ███████╗ █████╗ ██╗  ██╗',
+  '██╔══██╗██╔════╝██╔══██╗╚██╗██╔╝',
+  '███████║█████╗  ███████║ ╚███╔╝ ',
+  '██╔══██║██╔══╝  ██╔══██║ ██╔██╗ ',
+  '██║  ██║██║     ██║  ██║██╔╝ ██╗',
+  '╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝',
+];
+
+// Print the wordmark in brand orange with a left indent.
+export function banner(indent = '  ') {
+  for (const line of LOGO) console.log(indent + c.orange(line));
+}
+
 export const log = (...a) => console.log(...a);
 export const info = (msg) => console.log(`${c.cyan('›')} ${msg}`);
 export const ok = (msg) => console.log(`${c.green('✔')} ${msg}`);

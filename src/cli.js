@@ -2,7 +2,7 @@
 import { load, save, configPath, isConfigured, activeProvider, hasLLM } from './config.js';
 import { read } from './store.js';
 import { recall, forgetAll } from './memory.js';
-import { c, header, table, ok, info, warn, log, dim } from './logger.js';
+import { c, header, table, ok, info, warn, log, dim, banner } from './logger.js';
 
 import { init } from './init.js';
 import { connect, connections } from './connect.js';
@@ -21,7 +21,7 @@ import * as context from './agents/context.js';
 import * as outreach from './agents/outreach.js';
 import * as deploy from './agents/deploy.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 // ---- arg parsing -----------------------------------------------------------
 export function parse(argv) {
@@ -76,12 +76,22 @@ export async function dispatch(argv) {
       const { cmd: serve } = await import('./server.js');
       return serve(args);
     }
+    case 'web': {
+      const { cmd: web } = await import('./web.js');
+      return web(args);
+    }
     case 'inbox':
       return inboxCmd();
     case 'version':
     case '--version':
     case '-v':
       return log(`afax v${VERSION}`);
+    case 'self-update':
+    case 'selfupdate':
+    case 'reinstall': {
+      const { selfUpdate } = await import('./selfupdate.js');
+      return selfUpdate(args);
+    }
     case 'init':
       return init();
     case 'connect':
@@ -125,6 +135,8 @@ export async function dispatch(argv) {
       return scheduler.cmd(args, dispatch);
     case 'memory':
       return memoryCmd(args);
+    case 'usage':
+      return usageCmd(args);
     default:
       warn(`Unknown command: ${cmd}`);
       log(`Run ${c.cyan('afax help')} for the command list.`);
@@ -157,6 +169,7 @@ function configCmd(args) {
         ['baseUrl', p.baseUrl],
         ['apiKey', p.apiKey ? c.green('set') : c.yellow('not set')],
         ['autonomy', cfg.autonomy],
+        ['budget.monthly', cfg.budget?.monthly ? '$' + cfg.budget.monthly : 'unlimited'],
         ['business.name', cfg.business.name || '—'],
         ['business.icp', cfg.business.icp || '—'],
         ['LLM', hasLLM() ? c.green('online') : c.yellow('offline')],
@@ -187,6 +200,41 @@ function inboxCmd() {
   }
 }
 
+async function usageCmd(args) {
+  const { monthTotals, allTotals, budgetState, fmtUSD, fmtTok } = await import('./usage.js');
+  const { read } = await import('./store.js');
+  const month = monthTotals();
+  const all = allTotals();
+  const b = budgetState();
+
+  header('💸 Usage', 'LLM token spend for this workspace');
+  table(
+    ['Window', 'Calls', 'In', 'Out', 'Cost'],
+    [
+      ['This month', month.calls, fmtTok(month.input), fmtTok(month.output), fmtUSD(month.cost)],
+      ['All time', all.calls, fmtTok(all.input), fmtTok(all.output), fmtUSD(all.cost)],
+    ]
+  );
+  log('');
+  if (b.monthly > 0) {
+    const pct = Math.min(100, Math.round((b.spent / b.monthly) * 100));
+    const bar = '█'.repeat(Math.round(pct / 5)).padEnd(20, '░');
+    const styler = b.over ? c.red : pct >= 80 ? c.yellow : c.green;
+    log('  ' + c.dim('Budget ') + styler(bar) + '  ' + styler(`${fmtUSD(b.spent)} / ${fmtUSD(b.monthly)} (${pct}%)`));
+  } else {
+    log('  ' + c.dim('No monthly budget set. Cap spend with: ') + c.cyan('afax config set budget.monthly 50'));
+  }
+
+  if (args.recent) {
+    log('');
+    log('  ' + c.dim('Recent calls:'));
+    for (const r of read('usage', []).slice(-10)) {
+      log(`    ${c.dim(r.createdAt?.slice(0, 16).replace('T', ' '))}  ${r.model}  ${fmtTok(r.input)}→${fmtTok(r.output)}  ${fmtUSD(r.cost)}`);
+    }
+  }
+  log('');
+}
+
 function memoryCmd(args) {
   if (args._[0] === 'clear') {
     forgetAll();
@@ -202,12 +250,7 @@ function memoryCmd(args) {
 function help() {
   const cfg = load();
   log('');
-  log(c.orange('  █████╗ ███████╗ █████╗ ██╗  ██╗'));
-  log(c.orange('  ██╔══██╗██╔════╝██╔══██╗╚██╗██╔╝'));
-  log(c.orange('  ███████║█████╗  ███████║ ╚███╔╝ '));
-  log(c.orange('  ██╔══██║██╔══╝  ██╔══██║ ██╔██╗ '));
-  log(c.orange('  ██║  ██║██║     ██║  ██║██╔╝ ██╗'));
-  log(c.orange('  ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝'));
+  banner();
   log('  ' + c.dim('Autonomous Force for Automation eXecution · v' + VERSION));
   log('  ' + c.dim('Your company on autopilot with AI.'));
   log('');
@@ -225,6 +268,7 @@ function help() {
   row('status', 'Company dashboard across all 7 modules');
   row('run [--execute]', 'Orchestrator: plan & run the next best actions');
   row('config show|set <path> <v>', 'View/change configuration');
+  row('self-update [--link]', 'Reinstall the CLI globally from local source (dev)');
   log('');
   log(c.bold('  AGENTS'));
   row('🎯 prospect --target "<icp>" --limit <n>', 'AI-qualified lead profiles');
@@ -246,9 +290,11 @@ function help() {
   log(c.bold('  AUTONOMY'));
   row('run [--execute]', 'Orchestrator plans & acts');
   row('schedule "<when>" --do "<cmd>"', 'NL recurring tasks (cron-ready)');
+  row('web [--port 8788]', 'Local web panel: chat, integrations, database');
   row('serve [--port 8787]', 'Inbound: webhooks, auto-reply, asset hosting');
   row('inbox', 'Inbound messages received by the server');
   row('memory', 'What the agents remember');
+  row('usage [--recent]', 'LLM token spend + budget for this workspace');
   log('');
   log('  ' + c.dim('Outbound is dry-run until: ') + c.cyan('afax config set live true'));
   log('');

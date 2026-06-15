@@ -51,11 +51,18 @@ export function find(name, pred) {
   return read(name, []).find(pred) || null;
 }
 
+export function remove(name, id) {
+  const list = read(name, []);
+  const next = list.filter((x) => x.id !== id);
+  write(name, next);
+  return list.length - next.length; // count removed
+}
+
 // Names of all known collections (for export/import).
 export const COLLECTIONS = [
   'leads', 'contacts', 'crm_notes', 'deals', 'messages', 'posts',
   'campaigns', 'channels', 'content', 'flows', 'schedule',
-  'revenue', 'expenses', 'invoices', 'memory', 'inbox',
+  'revenue', 'expenses', 'invoices', 'memory', 'inbox', 'usage',
 ];
 
 export function cuid() {

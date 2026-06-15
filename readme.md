@@ -17,9 +17,37 @@ A multi-agent CLI that runs a digital business end-to-end: prospecting, cold out
 campaigns, content, CRM, operations and finance — built for **solo founders**,
 installable on a **VPS**, working **24/7** and delivering finished work to the CEO: you.
 
-<img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-339933?logo=node.js&logoColor=white"> <img alt="deps" src="https://img.shields.io/badge/runtime%20deps-0-ff7a1a"> <img alt="tests" src="https://img.shields.io/badge/tests-passing-46a758"> <img alt="license" src="https://img.shields.io/badge/license-AFAX%20Fair-blue"> <img alt="models" src="https://img.shields.io/badge/LLM-Anthropic%20%C2%B7%20OpenAI%20%C2%B7%20Ollama-8a63d2">
+<img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-339933?logo=node.js&logoColor=white"> <img alt="deps" src="https://img.shields.io/badge/runtime%20deps-0-ff7a1a"> <img alt="tests" src="https://img.shields.io/badge/tests-passing-46a758"> <img alt="license" src="https://img.shields.io/badge/license-MIT-46a758"> <img alt="models" src="https://img.shields.io/badge/LLM-Anthropic%20%C2%B7%20OpenAI%20%C2%B7%20Ollama-8a63d2">
 
 **[Website](https://afax.online)** · **[Documentation](https://afax.online/docs.html)** · **[Quick start](https://afax.online/docs.html#/quickstart)** · **[Run 24/7 on a VPS](https://afax.online/docs.html#/vps)** · **[Roadmap](https://afax.online/docs.html#/roadmap)**
+
+<br>
+
+<!-- Drop a real screenshot at docs/media/afax-cli.png and swap the block below for:
+     <img alt="AFAX — natural-language session in the terminal" src="docs/media/afax-cli.png" width="760"> -->
+
+```text
+  █████╗ ███████╗ █████╗ ██╗  ██╗
+  ██╔══██╗██╔════╝██╔══██╗╚██╗██╔╝
+  ███████║█████╗  ███████║ ╚███╔╝
+  ██╔══██║██╔══╝  ██╔══██║ ██╔██╗
+  ██║  ██║██║     ██║  ██║██╔╝ ██╗
+  ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝
+
+  Your company on autopilot  ·  acme  ·  openai/gpt-5  ·  ○ dry-run
+
+  WHAT I CAN DO — just ask in plain language:
+    grow        find leads, write & send outreach, run campaigns
+    sell        manage pipeline, follow up deals, send invoices
+    create      blogs, emails, posts, ads, images — on brand
+    know        status across all modules, finance & CRM read-outs
+    automate    flows, schedules, run the next best actions for you
+
+  ❯ how are we doing? source 10 leads for dental clinics and draft outreach
+    ⏺ afax status   ⏺ afax prospect --target "dental clinics"   ⏺ afax outreach
+  ● Pipeline $12,000 across 2 deals, MRR $99. Sourced & scored 10 leads,
+    drafted 5 cold emails — all dry-run. Want me to preview them?
+```
 
 </div>
 
@@ -198,7 +226,9 @@ AFAX_DEBUG=1 afax run                      # full stack traces
 
 ## License
 
-**[AFAX Fair License](./LICENSE)** — free for everyone under **$200K/year** revenue; small royalty above. Modify freely for internal use; don't repackage it as a competing product.
+**[MIT](./LICENSE)** — 100% open source. Use it, fork it, self-host it, build a business on it, forever, no strings attached.
+
+Prefer not to run the infra? **[AFAX Cloud](https://afax.online/#pricing)** is the managed version — same software, hosted, backed up and supported — and it funds the open-source work.
 
 ---
 

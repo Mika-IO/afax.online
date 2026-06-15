@@ -1,7 +1,7 @@
 // `afax init` — interactive setup: provider, model, keys, business profile.
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { load, save, DEFAULTS } from './config.js';
+import { load, save, hasLLM, DEFAULTS } from './config.js';
 import { c, header, ok, info, log, dim } from './logger.js';
 
 export async function init() {
@@ -52,6 +52,21 @@ export async function init() {
     save(cfg);
     log('');
     ok('Setup saved.');
+
+    // Learn the company from its website so every agent starts with real context.
+    if (cfg.business.website && hasLLM()) {
+      log('');
+      const go = (await ask(`Learn your company from ${c.cyan(cfg.business.website)} now? [Y/n]`, 'y')).toLowerCase();
+      if (go !== 'n' && go !== 'no') {
+        rl.close();
+        const { cmd: context } = await import('./agents/context.js');
+        await context({ _: ['ingest', cfg.business.website] });
+      }
+    } else if (cfg.business.website) {
+      info(`Run ${c.cyan('afax context ingest ' + cfg.business.website)} to learn your company from its site.`);
+    }
+
+    log('');
     info(`Try it:  ${c.cyan('afax status')}  ·  ${c.cyan('afax run')}  ·  ${c.cyan(`afax prospect --target "${cfg.business.icp || 'SaaS founders'}" --limit 10`)}`);
   } finally {
     rl.close();
