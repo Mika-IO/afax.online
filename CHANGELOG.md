@@ -8,6 +8,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.4.0] — 2026-06-15
 
 ### Added
+- **One-click OAuth** for the services that offer it — **Slack, Meta, Discord**.
+  "Connect with …" → provider consent screen → callback exchanges the code and
+  stores the token (CSRF-protected), no paste. Gated on an OAuth app per provider
+  (Cloud hosts them; self-host sets `AFAX_OAUTH_<P>_CLIENT_ID/SECRET`). Key-only
+  services (Resend/OpenAI/…) have no OAuth and keep smart-paste. See
+  [docs/oauth.md](docs/oauth.md). (`src/integrations/oauth.js`)
 - **Frictionless integrations.** A catalog (`src/integrations/catalog.js`) of
   minimal-field setups with "where to get the key" links, credential
   auto-detection and a live connection test. `afax connect paste "<key>"`

@@ -82,13 +82,23 @@ function constantEq(a, b) {
   if (ba.length !== bb.length || ba.length === 0) return false;
   return timingSafeEqual(ba, bb);
 }
-function cookieToken(req) {
+function getCookie(req, name) {
   const raw = req.headers.cookie || '';
   for (const part of raw.split(';')) {
     const i = part.indexOf('=');
-    if (i > 0 && part.slice(0, i).trim() === COOKIE) return decodeURIComponent(part.slice(i + 1).trim());
+    if (i > 0 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
   }
   return null;
+}
+const cookieToken = (req) => getCookie(req, COOKIE);
+function oauthRedirect(req, provider) {
+  const proto = req.headers['x-forwarded-proto'] || (req.socket?.encrypted ? 'https' : 'http');
+  return `${proto}://${req.headers.host}/api/oauth/${provider}/callback`;
+}
+function redirect(res, location) {
+  res.statusCode = 302;
+  res.setHeader('location', location);
+  res.end();
 }
 function authed(req, ctx) {
   const presented = req.headers['x-afax-token'] || cookieToken(req);
@@ -144,10 +154,42 @@ async function handle(req, res, ctx) {
     return res.end(authed(req, ctx) ? PAGE : LOGIN);
   }
 
+  // OAuth callback is a cross-site redirect from the provider — it can't carry
+  // the Strict auth cookie, so it's gated by the state cookie (CSRF) instead.
+  const cb = path.match(/^\/api\/oauth\/([a-z]+)\/callback$/);
+  if (cb && req.method === 'GET') {
+    const provider = cb[1];
+    const state = getCookie(req, 'afax_oauth');
+    res.setHeader('set-cookie', `afax_oauth=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secureFlag(req)}`);
+    if (url.searchParams.get('error')) return redirect(res, '/?oauth=denied');
+    if (!state || state !== url.searchParams.get('state')) return redirect(res, '/?oauth=badstate');
+    try {
+      const oauth = await import('./integrations/oauth.js');
+      await oauth.exchange(provider, url.searchParams.get('code'), oauthRedirect(req, provider));
+      return redirect(res, '/?oauth=ok');
+    } catch (e) {
+      warn(`OAuth ${provider}: ${e.message}`);
+      return redirect(res, '/?oauth=fail');
+    }
+  }
+
   if (!path.startsWith('/api/')) return send(res, 404, { error: 'not found' });
 
   // Everything below requires auth.
   if (!authed(req, ctx)) return send(res, 401, { error: 'unauthorized' });
+
+  // Begin an OAuth flow (authed): set the state cookie, redirect to the provider.
+  const st = path.match(/^\/api\/oauth\/([a-z]+)\/start$/);
+  if (st && req.method === 'GET') {
+    const provider = st[1];
+    const oauth = await import('./integrations/oauth.js');
+    if (!oauth.isReady(provider)) {
+      return send(res, 400, { error: `OAuth not configured for ${provider}. Set AFAX_OAUTH_${provider.toUpperCase()}_CLIENT_ID/SECRET.` });
+    }
+    const state = randomBytes(16).toString('hex');
+    res.setHeader('set-cookie', `afax_oauth=${state}; HttpOnly; SameSite=Lax; Path=/; Max-Age=600${secureFlag(req)}`);
+    return redirect(res, oauth.authorizeUrl(provider, oauthRedirect(req, provider), state));
+  }
 
   if (path === '/api/state') {
     const cfg = load();
@@ -175,10 +217,13 @@ async function handle(req, res, ctx) {
 
   if (path === '/api/integrations' && req.method === 'GET') {
     const { CATALOG, isConnected, getPath } = await import('./integrations/catalog.js');
+    const { providersStatus } = await import('./integrations/oauth.js');
     const cfg = load();
+    const oauth = providersStatus();
     return send(res, 200, {
       integrations: CATALOG.map((e) => ({
         key: e.key, label: e.label, kind: e.kind, get: e.get, connected: isConnected(e, cfg),
+        oauth: oauth[e.key] || null,
         fields: e.fields.map((f) => ({ path: f.path, label: f.label, placeholder: f.placeholder || '', secret: !!f.secret, set: !!getPath(cfg, f.path) })),
       })),
     });

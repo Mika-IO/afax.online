@@ -453,9 +453,15 @@ function loadIntegrations(){
         var type = f.secret ? "password" : "text";
         return '<label>' + esc(f.label) + '<input type="' + type + '" data-path="' + esc(f.path) + '" placeholder="' + esc(ph) + '"></label>';
       }).join("");
+      var oauthBtn = "";
+      if(it.oauth && it.oauth.supported){
+        if(it.oauth.ready) oauthBtn = '<a class="btn act" href="/api/oauth/' + it.key + '/start">Connect with ' + esc((it.oauth.label || it.label).split(" ")[0]) + ' &#8599;</a>';
+        else oauthBtn = '<span class="muted" style="font-size:11px">One-click available — set the OAuth app creds</span>';
+      }
       return '<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">' + esc(it.label) + '</h3>' + badge + '</div>' +
         '<div class=grid>' + fields + '</div>' +
-        '<div class="row" style="margin-top:12px;gap:8px"><button class="btn act" data-save="' + it.key + '">Save</button>' +
+        '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">' + oauthBtn +
+        '<button class="btn act" data-save="' + it.key + '">Save</button>' +
         '<button class="btn ghost" data-test="' + it.key + '">Test</button>' +
         '<span style="flex:1"></span><a class="muted" style="font-size:12px" href="' + esc(it.get) + '" target="_blank" rel="noopener">Get key &#8599;</a></div></div>';
     }).join("");
@@ -563,11 +569,18 @@ el("budgetBtn").onclick = function(){
 };
 
 // ---- boot ----
+var oauthResult = new URLSearchParams(location.search).get("oauth");
+if(oauthResult){
+  try { history.replaceState({}, "", "/"); } catch(e){}
+}
 loadState().then(function(){
   renderPills();
   el("msg").focus();
-  var t; try { t = localStorage.getItem("afax_tab"); } catch(e){}
-  if(t && t !== "chat" && TABS.indexOf(t) >= 0) showTab(t);
+  if(oauthResult){ showTab("integrations"); toast(oauthResult === "ok" ? "Integration connected \\u2713" : "OAuth " + oauthResult, oauthResult !== "ok"); }
+  else {
+    var t; try { t = localStorage.getItem("afax_tab"); } catch(e){}
+    if(t && t !== "chat" && TABS.indexOf(t) >= 0) showTab(t);
+  }
 });
 </script>
 </body>
