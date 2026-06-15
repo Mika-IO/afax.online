@@ -8,6 +8,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.4.0] — 2026-06-15
 
 ### Added
+- **Premium media generation.** `afax content carousel|meme|poster|reel` renders
+  on-brand HTML/CSS through headless Chromium to PNG (carousel slides, memes,
+  posters) and MP4 (motion reels: animated HTML → Playwright video → ffmpeg, with
+  optional music or AI voiceover). The brand derives from the workspace profile;
+  the model drafts the spec from a `--topic`, or pass `--spec file.json`. Output
+  is auto-organized under `~/.afax/library/<brand>/<type>/<date>_<slug>/` with a
+  caption. Playwright + ffmpeg are optional/lazy. (`src/content/*`)
 - **Browser capability (Hermes-style).** `afax browser <url>` and agent tools
   (`browser open/read/click/type/enter/scroll/shot/close`) drive a real headless
   browser via an optional, lazy-imported Playwright — the core stays zero-dep,

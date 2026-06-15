@@ -54,6 +54,7 @@ marketing publish --platform facebook|instagram|telegram|slack|discord [--messag
 marketing ads --goal "<g>" --budget <usd/day> [--live]
 sales pipeline [--deal "<n>" --value N --stage <s>] | sales followup --deal "<n>" | sales move --deal "<n>" --stage <s>
 content blog|email|post|landing|ad --topic "<t>" [--save f] | content image --prompt "<p>" | content list
+content carousel|meme|poster|reel --topic "<t>" [--spec f.json] [--lang pt] [--accent #hex] [--duration N]   (premium HTML→PNG/MP4 assets; reel = motion video)
 crm contact add "<email>" [--name --company] | crm contact list|show | crm note "<email>" "<text>"
 automation flow add "<name>" --trigger "<t>" --steps "<cmd; cmd>" | automation flow list|run|rm
 finance revenue --source "<s>" --amount N [--type subscription] | finance expense --label "<l>" --amount N

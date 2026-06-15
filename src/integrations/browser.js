@@ -130,6 +130,30 @@ export async function screenshot(name) {
   return file;
 }
 
+// Record an animated HTML page to a .webm video (premium motion/reel path).
+// Returns the webm path; the caller muxes audio / converts to mp4 with ffmpeg.
+export async function recordHtmlVideo(html, { width = 1080, height = 1920, durationMs = 6000 } = {}) {
+  const { chromium } = await playwright();
+  const dir = ensureDir(join(AFAX_HOME, 'assets', 'rec-' + Date.now()));
+  const browser = await chromium.launch({ headless: true, args: ['--force-color-profile=srgb'] });
+  try {
+    const context = await browser.newContext({
+      viewport: { width, height },
+      deviceScaleFactor: 1,
+      recordVideo: { dir, size: { width, height } },
+    });
+    const page = await context.newPage();
+    await page.setContent(html, { waitUntil: 'load' });
+    await page.evaluate('document.fonts && document.fonts.ready').catch(() => {});
+    await page.waitForTimeout(durationMs);
+    const video = page.video();
+    await context.close(); // finalizes the file
+    return await video.path();
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
 // Render an arbitrary HTML string/file to a PNG (the premium-asset path).
 export async function renderHtmlToPng(html, { width = 1080, height = 1350, scale = 2, out } = {}) {
   const { chromium } = await playwright();

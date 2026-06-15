@@ -289,7 +289,8 @@ function help() {
   row('💰 sales pipeline [--deal "<n>" --value <v>]', 'Pipeline & deals');
   row('💰 sales followup --deal "<n>"', 'AI follow-up message');
   row('✍️  content blog|email|post --topic "<t>"', 'Generate content');
-  row('✍️  content image --prompt "<p>"', 'Generate media assets');
+  row('✍️  content image --prompt "<p>"', 'AI image generation');
+  row('✍️  content carousel|meme|poster|reel --topic', 'Premium HTML→PNG/MP4 assets (motion reels)');
   row('🤝 crm contact add "<email>"', 'Manage contacts & history');
   row('🤖 automation flow add|list|run', 'Wire agents into flows');
   row('📊 finance revenue|expense|report', 'Cash flow, MRR, CFO read-out');
