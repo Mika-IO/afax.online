@@ -4,21 +4,37 @@
 // `afax ask "..."` is the one-shot, scriptable version of the same engine.
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import { existsSync, statSync, readFileSync, readdirSync } from 'node:fs';
+import { resolve, join, relative, basename } from 'node:path';
 import { chat as llm } from './llm/index.js';
-import { load, hasLLM } from './config.js';
+import { load, hasLLM, activeProvider } from './config.js';
 import { snapshot } from './orchestrator.js';
 import { recall, remember } from './memory.js';
 import { tokenize } from './agents/automation.js';
-import { c, log, warn, info } from './logger.js';
+import { costOf } from './llm/pricing.js';
+import { budgetState, fmtUSD, fmtTok } from './usage.js';
+import { c, log, warn, info, banner } from './logger.js';
+
+// Running cost meter for the current chat session.
+const session = { cost: 0, input: 0, output: 0, calls: 0 };
 
 const MAX_ACTIONS_PER_TURN = 5;
 const MAX_HISTORY = 30;
 
 // Commands the assistant may run. Interactive/recursive ones are excluded.
-const BLOCKED = ['chat', 'ask', 'serve', 'init', 'connect'];
+const BLOCKED = ['chat', 'ask', 'serve', 'web', 'init', 'connect', 'self-update', 'selfupdate', 'reinstall'];
+
+// Local filesystem inspection tools — the agent's "eyes". Read-only. Let the
+// model explore what the user points at (a folder of leads, a CSV, a repo)
+// before it plans, instead of asking the user to describe everything.
+const TOOLS = `
+fs ls <path>            list a directory (files + sizes)
+fs tree <path>          recursive listing (depth 3)
+fs read <path>          read a file (first ~6 KB)
+fs find <pattern> [--in <dir>]   find files by name/glob substring`.trim();
 
 const COMMANDS = `
-status | run [--execute --steps N] | memory [clear]
+status | run [--execute --steps N] | memory [clear] | usage [--recent]
 context ingest <url> | context show | context set <field> <value>
 workspace list|create|use|current
 prospect --target "<icp>" --limit N | prospect source <domain> | prospect verify <email> | prospect import <file.csv>
@@ -48,7 +64,11 @@ function systemPrompt() {
     'You are AFAX, the user\'s autonomous company copilot, in an interactive terminal session. ',
     'Be direct, concise and helpful. The user is the CEO.',
     '',
-    'You can answer questions (about the business, the data, or AFAX itself) and you can act by running AFAX commands.',
+    'You can answer questions (about the business, the data, or AFAX itself) and you can act by running commands.',
+    'You are agentic: when a task is fuzzy, investigate before answering. The CEO often points at things on disk',
+    '(e.g. "../crm", "the leads folder", "that CSV"). Do NOT ask them to describe structure you can inspect yourself —',
+    `your working directory is ${process.cwd()}. Use the fs tools to ls/tree/read/find, understand the data, then`,
+    'propose a concrete plan and run the AFAX commands to execute it. Explore first, plan, then act.',
     '',
     `About AFAX: ${ABOUT}`,
     '',
@@ -57,15 +77,170 @@ function systemPrompt() {
     `Outbound: ${cfg.live ? 'LIVE enabled globally' : 'dry-run (live=false)'} | Autonomy: ${cfg.autonomy}`,
     mem ? `Recent memory:\n${mem}` : '',
     '',
+    'Filesystem tools (read-only, for inspecting what the user references):',
+    TOOLS,
+    '',
     'Available commands (exact syntax, no "afax" prefix):',
     COMMANDS,
     '',
     'Respond with VALID JSON ONLY: {"say":"<what you tell the user, plain text>","run":["<command>", ...]}',
-    '- "run" is optional; include it only when executing commands serves the request. Max ' + MAX_ACTIONS_PER_TURN + ' per turn.',
+    '- "run" is optional; include it only when executing commands or fs tools serves the request. Max ' + MAX_ACTIONS_PER_TURN + ' per turn.',
     '- After commands execute you will receive their terminal output and can continue (run more) or answer.',
+    '- Prefer inspecting with fs tools over guessing or asking. Chain: fs explore → read → plan → afax commands.',
     '- Never invent command output. Never use commands outside the list. Quote multi-word values.',
     '- Outbound commands send real messages only when the user clearly asked; otherwise keep them dry-run (no --live).',
   ].filter(Boolean).join('\n');
+}
+
+// --- streaming UI ------------------------------------------------------------
+// Decode the `say` string value out of a partial JSON buffer as it streams in.
+// Returns the text-so-far (handling \n \t \" \\ escapes), or null if not started.
+export function saySoFar(buf) {
+  const m = buf.match(/"say"\s*:\s*"/);
+  if (!m) return null;
+  let out = '';
+  let esc = false;
+  for (let i = m.index + m[0].length; i < buf.length; i++) {
+    const ch = buf[i];
+    if (esc) {
+      out += { n: '\n', t: '\t', r: '\r' }[ch] ?? ch;
+      esc = false;
+    } else if (ch === '\\') {
+      esc = true;
+    } else if (ch === '"') {
+      break; // string closed
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+// A loading spinner that erases itself the moment real output arrives.
+function thinking() {
+  if (!stdout.isTTY) return { stop() {} };
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let i = 0;
+  const id = setInterval(() => {
+    stdout.write('\r  ' + c.orange(frames[i++ % frames.length]) + ' ' + c.dim('thinking…'));
+  }, 80);
+  let stopped = false;
+  return {
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      clearInterval(id);
+      stdout.write('\r\x1b[K'); // clear the spinner line
+    },
+  };
+}
+
+// Renders the assistant `say` field live as JSON tokens stream in.
+function sayRenderer() {
+  let printed = 0;
+  let started = false;
+  let text = '';
+  return {
+    push(buf) {
+      const say = saySoFar(buf);
+      if (say == null) return;
+      text = say;
+      if (!started) { stdout.write('\n' + c.orange('●') + ' '); started = true; }
+      if (say.length > printed) {
+        stdout.write(say.slice(printed).split('\n').join('\n  '));
+        printed = say.length;
+      }
+    },
+    done() { if (started) stdout.write('\n'); },
+    get text() { return text; },
+    get started() { return started; },
+  };
+}
+
+// --- filesystem tools (the agent's eyes) ------------------------------------
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.next', 'dist', 'build', '.cache']);
+
+function fmtSize(n) {
+  if (n < 1024) return n + 'B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + 'K';
+  return (n / 1024 / 1024).toFixed(1) + 'M';
+}
+
+function listDir(p) {
+  const out = [];
+  for (const name of readdirSync(p).sort()) {
+    if (SKIP_DIRS.has(name)) continue;
+    let st;
+    try { st = statSync(join(p, name)); } catch { continue; }
+    out.push(st.isDirectory() ? `${name}/` : `${name}  ${fmtSize(st.size)}`);
+    if (out.length >= 200) { out.push('… (truncated)'); break; }
+  }
+  return out.length ? out.join('\n') : '(empty)';
+}
+
+function treeDir(root, depth = 3) {
+  const lines = [];
+  const walk = (dir, prefix, d) => {
+    if (d > depth || lines.length >= 300) return;
+    let names;
+    try { names = readdirSync(dir).sort(); } catch { return; }
+    for (const name of names) {
+      if (SKIP_DIRS.has(name) || lines.length >= 300) continue;
+      let st;
+      try { st = statSync(join(dir, name)); } catch { continue; }
+      const isDir = st.isDirectory();
+      lines.push(`${prefix}${name}${isDir ? '/' : '  ' + fmtSize(st.size)}`);
+      if (isDir) walk(join(dir, name), prefix + '  ', d + 1);
+    }
+  };
+  walk(root, '', 1);
+  return lines.length ? lines.join('\n') : '(empty)';
+}
+
+function findFiles(root, pattern) {
+  const needle = pattern.toLowerCase().replace(/[*?]/g, '');
+  const hits = [];
+  const walk = (dir) => {
+    if (hits.length >= 100) return;
+    let names;
+    try { names = readdirSync(dir).sort(); } catch { return; }
+    for (const name of names) {
+      if (SKIP_DIRS.has(name) || hits.length >= 100) continue;
+      const full = join(dir, name);
+      let st;
+      try { st = statSync(full); } catch { continue; }
+      if (st.isDirectory()) walk(full);
+      else if (name.toLowerCase().includes(needle)) hits.push(relative(process.cwd(), full) || name);
+    }
+  };
+  walk(root);
+  return hits.length ? hits.join('\n') : `(no files matching "${pattern}")`;
+}
+
+// Run a read-only `fs` tool and return its output for the model.
+export function fsTool(args) {
+  const sub = args._[0];
+  const target = (args._[1] || (sub === 'find' ? '' : '.')).replace(/^["']|["']$/g, '');
+  try {
+    if (sub === 'find') {
+      const root = resolve(process.cwd(), (args.in || '.').replace(/^["']|["']$/g, ''));
+      if (!target) return 'Error: usage — fs find <pattern> [--in <dir>]';
+      return findFiles(root, target);
+    }
+    const p = resolve(process.cwd(), target);
+    if (!existsSync(p)) return `Error: no such path: ${target}`;
+    const st = statSync(p);
+    if (sub === 'ls') return st.isDirectory() ? listDir(p) : `${basename(p)}  ${fmtSize(st.size)} (file)`;
+    if (sub === 'tree') return st.isDirectory() ? treeDir(p) : `${basename(p)} is a file`;
+    if (sub === 'read') {
+      if (st.isDirectory()) return `${target} is a directory — use fs ls/tree`;
+      const data = readFileSync(p, 'utf8');
+      return data.length > 6000 ? data.slice(0, 6000) + `\n… (${fmtSize(st.size)} total, truncated)` : data;
+    }
+    return `Error: unknown fs tool "${sub}". Use ls|tree|read|find.`;
+  } catch (e) {
+    return `Error: ${e.message}`;
+  }
 }
 
 // Run one dispatched command while capturing its terminal output (for the model).
@@ -85,28 +260,90 @@ async function execCapture(command) {
   return buf.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 3000);
 }
 
-// One conversational turn: think → act (≤ MAX_ACTIONS) → answer.
-async function turn(messages, userText) {
-  messages.push({ role: 'user', content: userText });
-  let final = '';
-  for (let hop = 0; hop <= MAX_ACTIONS_PER_TURN; hop++) {
-    const { json } = await llm({
+// Ask the model for one JSON step, streaming `say` live and degrading
+// gracefully so the user always gets an answer (never "Empty model response").
+async function think(messages, render) {
+  const spin = render ? thinking() : null;
+  const renderer = render ? sayRenderer() : null;
+  const onToken = render
+    ? (_d, full) => { if (spin) spin.stop(); renderer.push(full); }
+    : undefined;
+  try {
+    const { json, usage } = await llm({
       system: systemPrompt(),
       messages: messages.slice(-MAX_HISTORY),
       json: true,
       temperature: 0.4,
-      maxTokens: 1200,
+      maxTokens: 4000,
+      onToken,
     });
+    if (renderer) renderer.done();
+    return { json, rendered: renderer?.started, usage };
+  } catch (e) {
+    // Model returned empty / unparseable JSON. Don't crash the turn — recover a
+    // plain-language answer so the user is never left staring at an error.
+    if (renderer?.text) return { json: { say: renderer.text, run: [] }, rendered: true };
+    const { text, usage } = await llm({
+      system: systemPrompt(),
+      messages: messages.slice(-MAX_HISTORY),
+      json: false,
+      temperature: 0.4,
+      maxTokens: 4000,
+    });
+    const say = (text || '').trim() || 'Tive um problema para gerar a resposta. Pode repetir ou reformular?';
+    return { json: { say, run: [] }, rendered: false, usage };
+  } finally {
+    if (spin) spin.stop();
+  }
+}
+
+// Print the live cost meter for one model call and roll it into the session.
+function meter(usage) {
+  if (!usage) return;
+  const { model } = activeProvider();
+  const cost = costOf(model, usage);
+  session.cost += cost;
+  session.input += usage.input || 0;
+  session.output += usage.output || 0;
+  session.calls += 1;
+
+  const b = budgetState();
+  const left = b.monthly > 0 ? `  ·  month ${fmtUSD(b.spent)}/${fmtUSD(b.monthly)}` : '';
+  log(
+    '  ' +
+      c.dim(
+        `· ${fmtTok(usage.input || 0)}→${fmtTok(usage.output || 0)} tok  ·  ${fmtUSD(cost)}  ·  ` +
+          `session ${fmtUSD(session.cost)}${left}`
+      )
+  );
+}
+
+// One conversational turn: think → act (≤ MAX_ACTIONS) → answer.
+async function turn(messages, userText, { stream = false } = {}) {
+  messages.push({ role: 'user', content: userText });
+  const render = stream && stdout.isTTY;
+  let final = '';
+  for (let hop = 0; hop <= MAX_ACTIONS_PER_TURN; hop++) {
+    const { json, rendered, usage } = await think(messages, render);
     const say = (json.say || '').trim();
     const run = (Array.isArray(json.run) ? json.run : []).slice(0, MAX_ACTIONS_PER_TURN);
     messages.push({ role: 'assistant', content: JSON.stringify(json) });
 
-    if (say) log('\n' + c.orange('●') + ' ' + say.split('\n').join('\n  '));
+    if (say && !rendered) log('\n' + c.orange('●') + ' ' + say.split('\n').join('\n  '));
+    meter(usage);
     if (!run.length || hop === MAX_ACTIONS_PER_TURN) { final = say; break; }
 
+    const { parse } = await import('./cli.js');
     let results = '';
     for (const cmd of run) {
-      const head = tokenize(cmd)[0];
+      const tokens = tokenize(cmd);
+      const head = tokens[0];
+      if (head === 'fs') {
+        log('\n' + c.dim('⏺ ' + cmd));
+        const out = fsTool(parse(tokens.slice(1)));
+        results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
+        continue;
+      }
       if (BLOCKED.includes(head)) {
         results += `[${cmd}] blocked: "${head}" is interactive — tell the user to run it themselves.\n`;
         info(`Skipped interactive command: ${cmd}`);
@@ -121,19 +358,95 @@ async function turn(messages, userText) {
   return final;
 }
 
+// The chat welcome screen: wordmark, status line, and a brief capability guide.
+export function welcome() {
+  const cfg = load();
+  const company = cfg.business.name || cfg.workspace;
+  const model = activeProvider(cfg).model;
+  const live = cfg.live ? c.green('● live') : c.dim('○ dry-run');
+
+  log('');
+  banner();
+  log('');
+  log('  ' + c.bold('Your company on autopilot') + c.dim('  ·  ' + company + '  ·  ' + cfg.provider + '/' + model + '  ·  ') + live);
+  log('');
+  log('  ' + c.dim('WHAT I CAN DO — just ask in plain language:'));
+  const g = (cmd, what) => log('    ' + c.orange(cmd.padEnd(12)) + c.dim(what));
+  g('grow', 'find leads, write & send outreach, run campaigns');
+  g('sell', 'manage pipeline, follow up deals, send invoices');
+  g('create', 'blogs, emails, posts, ads, images — on brand');
+  g('know', 'status across all modules, finance & CRM read-outs');
+  g('automate', 'flows, schedules, run the next best actions for you');
+  log('');
+  log('  ' + c.dim('Try:') + ' "how are we doing?"  ·  "find 10 leads and draft outreach"');
+  log('  ' + c.dim('I can read files you point me to. ') + c.dim('Type ') + c.cyan('exit') + c.dim(' to quit.'));
+}
+
+// Programmatic, headless turn used by the web UI. Streams structured events via
+// onEvent: {type:'token',say} · {type:'say',text,usage} · {type:'command',cmd,out}
+// · {type:'done',final}. Shares the same engine, tools and budget as the CLI.
+export async function chatTurn(messages, userText, { onEvent = () => {} } = {}) {
+  const { parse } = await import('./cli.js');
+  messages.push({ role: 'user', content: userText });
+  let final = '';
+  for (let hop = 0; hop <= MAX_ACTIONS_PER_TURN; hop++) {
+    let json;
+    let usage;
+    try {
+      const r = await llm({
+        system: systemPrompt(),
+        messages: messages.slice(-MAX_HISTORY),
+        json: true,
+        temperature: 0.4,
+        maxTokens: 4000,
+        onToken: (_d, full) => { const say = saySoFar(full); if (say != null) onEvent({ type: 'token', say }); },
+      });
+      json = r.json; usage = r.usage;
+    } catch {
+      const r = await llm({ system: systemPrompt(), messages: messages.slice(-MAX_HISTORY), json: false, temperature: 0.4, maxTokens: 4000 });
+      json = { say: (r.text || '').trim() || 'Tive um problema para gerar a resposta. Pode reformular?', run: [] };
+      usage = r.usage;
+    }
+    const say = (json.say || '').trim();
+    const run = (Array.isArray(json.run) ? json.run : []).slice(0, MAX_ACTIONS_PER_TURN);
+    messages.push({ role: 'assistant', content: JSON.stringify(json) });
+    onEvent({ type: 'say', text: say, usage });
+    if (!run.length || hop === MAX_ACTIONS_PER_TURN) { final = say; break; }
+
+    let results = '';
+    for (const cmd of run) {
+      const tokens = tokenize(cmd);
+      const head = tokens[0];
+      if (head === 'fs') {
+        const out = fsTool(parse(tokens.slice(1)));
+        onEvent({ type: 'command', cmd, out });
+        results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
+        continue;
+      }
+      if (BLOCKED.includes(head)) {
+        const out = `blocked: "${head}" is interactive — run it in the terminal.`;
+        onEvent({ type: 'command', cmd, out });
+        results += `[${cmd}] ${out}\n`;
+        continue;
+      }
+      const out = await execCapture(cmd);
+      onEvent({ type: 'command', cmd, out });
+      results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
+    }
+    messages.push({ role: 'user', content: results + '\nContinue: more commands if needed, then answer the user in "say".' });
+  }
+  onEvent({ type: 'done', final });
+  return final;
+}
+
 // afax chat — interactive REPL (also the default when running plain `afax`).
 export async function repl() {
   if (!hasLLM()) {
     warn('Chat needs an LLM. Run: ' + c.cyan('afax init') + '  (every other command still works).');
     return;
   }
-  const cfg = load();
-  log('');
-  log('  ' + c.orange('▰▰▰ ') + c.bold('AFAX') + c.dim(' · ' + (cfg.business.name || cfg.workspace) + ' · ' + cfg.provider));
-  log('  ' + c.dim('Talk to your company in natural language — I run the commands.'));
-  log('  ' + c.dim('Try: "how are we doing?" · "find 10 leads and draft outreach" · "what is AFAX?"'));
-  log('  ' + c.dim('exit to quit'));
-
+  welcome();
+  session.cost = session.input = session.output = session.calls = 0;
   const rl = createInterface({ input: stdin, output: stdout });
   const messages = [];
   try {
@@ -147,7 +460,7 @@ export async function repl() {
       if (!q) continue;
       if (['exit', 'quit', 'q'].includes(q.toLowerCase())) break;
       try {
-        await turn(messages, q);
+        await turn(messages, q, { stream: true });
       } catch (e) {
         warn(e.message);
       }
@@ -155,6 +468,10 @@ export async function repl() {
   } finally {
     rl.close();
     remember('chat', `Chat session ended (${Math.floor(messages.length / 2)} turns).`);
+    if (session.calls) {
+      log('');
+      log('  ' + c.dim(`Session: ${session.calls} calls · ${fmtTok(session.input + session.output)} tok · ${fmtUSD(session.cost)}`));
+    }
     log('');
   }
 }
@@ -164,5 +481,5 @@ export async function ask(args) {
   const q = args._.join(' ');
   if (!q) return warn('Usage: afax ask "how is the pipeline looking?"');
   if (!hasLLM()) return warn('Ask needs an LLM. Run: afax init');
-  await turn([], q);
+  await turn([], q, { stream: true });
 }

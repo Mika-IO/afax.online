@@ -76,6 +76,6 @@ Check the header line of the command output — it states `dry-run`, `LIVE`, or 
 
 **Can I run it fully offline?** Yes — provider `ollama` needs no key and no internet. Connectors obviously need network to send.
 
-**Is it free?** The software is free under $200K/year revenue (see the [license](https://github.com/mika-io/afax.online/blob/main/LICENSE)); you pay your own LLM/API usage.
+**Is it free?** Yes — the software is 100% open source under the [MIT license](https://github.com/mika-io/afax.online/blob/main/LICENSE); you only pay your own LLM/API usage. Prefer managed hosting? See [AFAX Cloud](https://afax.online/#pricing).
 
 **Where do I report bugs?** [GitHub issues](https://github.com/mika-io/afax.online/issues). Include the `AFAX_DEBUG=1` output.
