@@ -21,6 +21,7 @@ const { buildExport } = await import('../src/data.js');
 const { fsTool, saySoFar } = await import('../src/chat.js');
 const { costOf, priceOf } = await import('../src/llm/pricing.js');
 const { assertSafeUrl } = await import('../src/integrations/ssrf.js');
+const { detect } = await import('../src/integrations/catalog.js');
 const { record, monthTotals, budgetState } = await import('../src/usage.js');
 
 test('parse: flags, values, =, positionals, booleans', () => {
@@ -49,6 +50,16 @@ test('fsTool: read-only filesystem inspection', () => {
   assert.match(find, /openai\.js/);
   assert.match(fsTool(parse(['read', 'nope.xyz'])), /no such path/);
   assert.match(fsTool(parse(['warp'])), /unknown fs tool/);
+});
+
+test('catalog: smart-paste detects the right service', () => {
+  assert.equal(detect('re_abcd1234efgh5678ij').key, 'email');
+  assert.equal(detect('123456789:ABCdefGHIjklMNOpqrstUVWXyz1234567890').key, 'telegram');
+  assert.equal(detect('sk-ant-abcdefghij1234567890').key, 'anthropic'); // not openai
+  assert.equal(detect('sk-proj-abcdefghij1234567890').key, 'openai');
+  assert.equal(detect('sk_live_abcdefghij1234567890').key, 'stripe');
+  assert.equal(detect('https://hooks.slack.com/services/T/B/x').key, 'slack');
+  assert.equal(detect('nope'), null);
 });
 
 test('ssrf: blocks loopback/private/metadata, non-http schemes', async () => {

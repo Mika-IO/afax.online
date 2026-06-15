@@ -8,6 +8,14 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.4.0] — 2026-06-15
 
 ### Added
+- **Frictionless integrations.** A catalog (`src/integrations/catalog.js`) of
+  minimal-field setups with "where to get the key" links, credential
+  auto-detection and a live connection test. `afax connect paste "<key>"`
+  detects the service from a pasted value, saves it and tests it;
+  `afax connect test` verifies connections. The web Integrations tab gets a
+  smart-paste box + per-service cards (only the fields that matter — no SMTP
+  host/port for Resend) with Save/Test/Get-key. The chat agent can self-configure
+  via `connect paste`/`connect test`.
 - **Premium media generation.** `afax content carousel|meme|poster|reel` renders
   on-brand HTML/CSS through headless Chromium to PNG (carousel slides, memes,
   posters) and MP4 (motion reels: animated HTML → Playwright video → ffmpeg, with

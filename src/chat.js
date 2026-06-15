@@ -25,6 +25,14 @@ const MAX_HISTORY = 30;
 // Commands the assistant may run. Interactive/recursive ones are excluded.
 const BLOCKED = ['chat', 'ask', 'serve', 'web', 'init', 'connect', 'self-update', 'selfupdate', 'reinstall'];
 
+// Interactive/recursive commands the agent must not run — except the
+// non-interactive `connect paste|test`, which let it self-configure.
+function isInteractive(tokens) {
+  const head = tokens[0];
+  if (head === 'connect') return !['paste', 'test'].includes(tokens[1]);
+  return BLOCKED.includes(head);
+}
+
 // Local filesystem inspection tools — the agent's "eyes". Read-only. Let the
 // model explore what the user points at (a folder of leads, a CSV, a repo)
 // before it plans, instead of asking the user to describe everything.
@@ -119,9 +127,10 @@ function systemPrompt() {
     '- Chain multiple commands in one turn (explore → generate → preview) instead of doing one and stopping.',
     '',
     'KNOW YOUR LIMITS — be honest, never stall or pad:',
-    '- A channel marked "not set" above is NOT usable. If a request needs it (e.g. send email but Email not set,',
-    '  source real contacts but Leads not set), say so in one line and give the exact fix:',
-    '  "Email isn\'t connected — run `afax connect email` first." Then stop or do what you CAN do. Never pretend it worked.',
+    '- A channel marked "not set" above is NOT usable. If a request needs it, say so and help connect it:',
+    '  tell them exactly where to get the key (you know each service), and the moment they paste a key/token/',
+    '  webhook URL, run  connect paste "<value>"  — it auto-detects the service, saves and live-tests it. Use',
+    '  connect test to verify. Never pretend an unconnected channel worked.',
     '- If a command output shows an error, "not configured", or stays dry-run, report that plainly — do not spin it as success.',
     '- Self-correct: if a command fails on a fixable mistake (bad flag, wrong quoting, missing arg), fix it and retry once — don\'t give up or ask the user to do it.',
     '- Verify before claiming done: when it\'s cheap, confirm the result with a read (status, *list, crm contact list…) instead of asserting an outcome you didn\'t check.',
@@ -414,7 +423,7 @@ async function turn(messages, userText, { stream = false } = {}) {
         results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
         continue;
       }
-      if (BLOCKED.includes(head)) {
+      if (isInteractive(tokens)) {
         results += `[${cmd}] blocked: "${head}" is interactive — tell the user to run it themselves.\n`;
         info(`Skipped interactive command: ${cmd}`);
         continue;
@@ -499,7 +508,7 @@ export async function chatTurn(messages, userText, { onEvent = () => {} } = {}) 
         results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
         continue;
       }
-      if (BLOCKED.includes(head)) {
+      if (isInteractive(tokens)) {
         const out = `blocked: "${head}" is interactive — run it in the terminal.`;
         onEvent({ type: 'command', cmd, out });
         results += `[${cmd}] ${out}\n`;

@@ -173,6 +173,27 @@ async function handle(req, res, ctx) {
     return send(res, 200, { ok: true });
   }
 
+  if (path === '/api/integrations' && req.method === 'GET') {
+    const { CATALOG, isConnected, getPath } = await import('./integrations/catalog.js');
+    const cfg = load();
+    return send(res, 200, {
+      integrations: CATALOG.map((e) => ({
+        key: e.key, label: e.label, kind: e.kind, get: e.get, connected: isConnected(e, cfg),
+        fields: e.fields.map((f) => ({ path: f.path, label: f.label, placeholder: f.placeholder || '', secret: !!f.secret, set: !!getPath(cfg, f.path) })),
+      })),
+    });
+  }
+  if (path === '/api/integrations/paste' && req.method === 'POST') {
+    const { secret } = await json(req);
+    const { paste } = await import('./integrations/catalog.js');
+    return send(res, 200, await paste(String(secret || '')));
+  }
+  if (path === '/api/integrations/test' && req.method === 'POST') {
+    const { key } = await json(req);
+    const { runTest } = await import('./integrations/catalog.js');
+    return send(res, 200, await runTest(key));
+  }
+
   if (path === '/api/chat' && req.method === 'POST') {
     const { text } = await json(req);
     if (!text) return send(res, 400, { error: 'text required' });

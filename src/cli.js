@@ -102,7 +102,7 @@ export async function dispatch(argv) {
     case 'init':
       return init();
     case 'connect':
-      return connect(args._[0]);
+      return connect(args);
     case 'connections':
       return connections();
     case 'workspace':
@@ -271,7 +271,9 @@ function help() {
   row('browser <url>', 'Drive a real headless browser (needs: npm i playwright)');
   row('workspace use <name>', 'Switch company (multi-company isolated data)');
   row('export / import <file>', 'Back up or move a company');
-  row('connect <platform>', 'Wire email / meta / telegram / leads / media …');
+  row('connect paste "<key>"', 'Smart connect — auto-detects the service & tests it');
+  row('connect <platform>', 'Guided setup for one service');
+  row('connect test [service]', 'Verify connected integrations with a live call');
   row('connections', 'Show what is connected (+ live/dry-run)');
   row('status', 'Company dashboard across all 7 modules');
   row('run [--execute]', 'Orchestrator: plan & run the next best actions');

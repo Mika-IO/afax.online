@@ -193,11 +193,20 @@ export const PAGE = `<!doctype html>
     </section>
 
     <section id="integrations" hidden>
-      <div class="head row" style="justify-content:space-between; align-items:flex-end;">
-        <div><h2>Integrations</h2><p>Providers, keys and channels. Secrets stay on the server.</p></div>
-        <button class="btn act" id="saveCfg">Save changes</button>
+      <div class="head"><h2>Integrations</h2><p>Paste any key — I detect the service, save it and test it. Or fill a card. Secrets stay on the server.</p></div>
+      <div class="card">
+        <h3>Smart connect</h3>
+        <div class="row">
+          <input id="pasteIn" type="password" placeholder="Paste an API key / token / webhook URL…" style="margin-top:0">
+          <button class="btn act" id="pasteBtn">Detect &amp; connect</button>
+        </div>
       </div>
-      <div id="cfg"></div>
+      <div id="cards"></div>
+      <details style="margin-top:6px">
+        <summary class="muted" style="cursor:pointer;padding:8px 2px">Advanced — every setting</summary>
+        <div class="row" style="justify-content:flex-end;margin:8px 0"><button class="btn act" id="saveCfg">Save changes</button></div>
+        <div id="cfg"></div>
+      </details>
     </section>
 
     <section id="database" hidden>
@@ -272,7 +281,7 @@ function showTab(name){
   document.querySelectorAll(".side nav button").forEach(function(b){ b.classList.toggle("active", b.dataset.tab === name); });
   try { localStorage.setItem("afax_tab", name); } catch(e){}
   if(name === "chat") el("msg").focus();
-  if(name === "integrations") loadConfig();
+  if(name === "integrations"){ loadIntegrations(); loadConfig(); }
   if(name === "database") loadCollections();
   if(name === "usage") loadUsage();
 }
@@ -430,6 +439,49 @@ el("saveCfg").onclick = function(){
   els.forEach(function(e){ if(e.value !== e.dataset.orig) changes.push({ path: e.dataset.path, value: e.value }); });
   if(!changes.length){ toast("No changes"); return; }
   Promise.all(changes.map(function(ch){ return api("/api/config", { method:"POST", body: JSON.stringify(ch) }); })).then(function(){ toast("Saved " + changes.length + " field(s)"); loadState(); loadConfig(); });
+};
+
+// ---- integrations: smart connect + per-service cards ----
+function loadIntegrations(){
+  j("/api/integrations").then(function(d){
+    el("cards").innerHTML = (d.integrations || []).map(function(it){
+      var badge = it.connected
+        ? '<span style="color:var(--green);font-size:12px">&#9679; connected</span>'
+        : '<span class="muted" style="font-size:12px">&#9675; not set</span>';
+      var fields = it.fields.map(function(f){
+        var ph = f.set ? "set — leave blank to keep" : (f.placeholder || "");
+        var type = f.secret ? "password" : "text";
+        return '<label>' + esc(f.label) + '<input type="' + type + '" data-path="' + esc(f.path) + '" placeholder="' + esc(ph) + '"></label>';
+      }).join("");
+      return '<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">' + esc(it.label) + '</h3>' + badge + '</div>' +
+        '<div class=grid>' + fields + '</div>' +
+        '<div class="row" style="margin-top:12px;gap:8px"><button class="btn act" data-save="' + it.key + '">Save</button>' +
+        '<button class="btn ghost" data-test="' + it.key + '">Test</button>' +
+        '<span style="flex:1"></span><a class="muted" style="font-size:12px" href="' + esc(it.get) + '" target="_blank" rel="noopener">Get key &#8599;</a></div></div>';
+    }).join("");
+    document.querySelectorAll("#cards [data-save]").forEach(function(b){ b.onclick = function(){ saveCard(b); }; });
+    document.querySelectorAll("#cards [data-test]").forEach(function(b){ b.onclick = function(){ testInteg(b.dataset.test); }; });
+  });
+}
+function saveCard(btn){
+  var card = btn.closest(".card");
+  var changes = [];
+  card.querySelectorAll("[data-path]").forEach(function(e){ if(e.value.trim() !== "") changes.push({ path: e.dataset.path, value: e.value.trim() }); });
+  if(!changes.length){ toast("Nothing to save"); return; }
+  Promise.all(changes.map(function(ch){ return api("/api/config", { method:"POST", body: JSON.stringify(ch) }); })).then(function(){ toast("Saved"); loadIntegrations(); loadState(); });
+}
+function testInteg(key){
+  toast("Testing " + key + "…");
+  j("/api/integrations/test", { method:"POST", body: JSON.stringify({ key: key }) }).then(function(r){ toast((r.ok ? "\\u2713 " : "\\u2717 ") + key + " — " + (r.msg || ""), !r.ok); });
+}
+el("pasteBtn").onclick = function(){
+  var v = el("pasteIn").value.trim(); if(!v) return;
+  j("/api/integrations/paste", { method:"POST", body: JSON.stringify({ secret: v }) }).then(function(r){
+    if(!r.ok){ toast(r.error || "Not recognized", true); return; }
+    el("pasteIn").value = "";
+    toast(r.label + (r.test && r.test.ok ? " connected \\u2713" : " saved — test: " + ((r.test && r.test.msg) || "?")));
+    loadIntegrations(); loadState();
+  });
 };
 
 // ---- database ----

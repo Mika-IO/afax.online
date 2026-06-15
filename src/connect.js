@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { load, save } from './config.js';
 import { connections as connStatus } from './integrations/registry.js';
-import { c, header, table, ok, info, warn, log, dim } from './logger.js';
+import { c, header, table, ok, info, warn, log, dim, spin } from './logger.js';
 
 const FIELDS = {
   email: [
@@ -32,9 +32,18 @@ const FIELDS = {
   deploy: [['host', 'VPS host'], ['user', 'SSH user'], ['path', 'Remote path'], ['key', 'SSH key path (optional)']],
 };
 
-export async function connect(platform) {
+export async function connect(args) {
+  // Back-compat: allow connect('telegram') as well as connect(parsedArgs).
+  const argv = typeof args === 'string' ? { _: [args] } : (args || { _: [] });
+  const sub = argv._[0];
+
+  if (sub === 'paste') return pasteConnect(argv);
+  if (sub === 'test') return testConnect(argv);
+
+  const platform = sub;
   if (!platform || !FIELDS[platform]) {
     warn(`Usage: afax connect <${Object.keys(FIELDS).join('|')}>`);
+    info('Faster: ' + c.cyan('afax connect paste "<key>"') + ' auto-detects the service · ' + c.cyan('afax connect test') + ' verifies them.');
     return;
   }
   header(`AFAX · Connect ${platform}`, 'Leave blank to keep current / skip');
@@ -57,6 +66,40 @@ export async function connect(platform) {
   } finally {
     rl.close();
   }
+}
+
+// afax connect paste "<secret>" — detect the service from the value, save, test.
+async function pasteConnect(argv) {
+  const secret = argv._.slice(1).join(' ').replace(/^["']|["']$/g, '').trim();
+  if (!secret) return warn('Usage: afax connect paste "<api key / token / webhook url>"');
+  const { paste } = await import('./integrations/catalog.js');
+  const r = await spin('Detecting & testing', () => paste(secret));
+  if (!r.ok) {
+    warn(r.error);
+    return info('Or connect it explicitly: ' + c.cyan('afax connect <service>'));
+  }
+  if (r.test.ok) ok(`${c.bold(r.label)} connected & verified ✓  ${c.dim('(' + r.test.msg + ')')}`);
+  else {
+    ok(`${c.bold(r.label)} saved.`);
+    warn(`But the live test failed: ${r.test.msg} — double-check the value.`);
+  }
+  info('Outbound stays OFF until ' + c.cyan('afax config set live true'));
+}
+
+// afax connect test [service] — verify connected integrations with a live call.
+async function testConnect(argv) {
+  const { CATALOG, byKey, runTest, isConnected } = await import('./integrations/catalog.js');
+  const only = argv._[1];
+  const targets = only ? [byKey(only)].filter(Boolean) : CATALOG.filter((e) => isConnected(e));
+  if (!targets.length) return info(only ? `Unknown or unset: ${only}` : 'No integrations connected yet. Try: ' + c.cyan('afax connect paste "<key>"'));
+  header('AFAX · Connection test', 'Live verification');
+  const rows = [];
+  for (const e of targets) {
+    const r = await runTest(e.key);
+    rows.push([e.label, r.ok ? c.green('● ok') : c.red('✖ ' + (r.msg || 'failed')), r.ok ? c.dim(r.msg) : '']);
+  }
+  table(['Service', 'Status', 'Detail'], rows);
+  log('');
 }
 
 export function connections() {
