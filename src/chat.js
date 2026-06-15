@@ -9,6 +9,7 @@ import { resolve, join, relative, basename } from 'node:path';
 import { chat as llm } from './llm/index.js';
 import { load, hasLLM, activeProvider } from './config.js';
 import { snapshot } from './orchestrator.js';
+import { connections } from './integrations/registry.js';
 import { recall, remember } from './memory.js';
 import { tokenize } from './agents/automation.js';
 import { costOf } from './llm/pricing.js';
@@ -53,7 +54,20 @@ schedule "<when>" --do "<cmd>" | schedule list|run|rm <id>
 export [--out f] | import <file> | connections | config show|get|set
 deploy --src <dir> [--run "<cmd>"] [--live]`.trim();
 
-const ABOUT = `AFAX (Autonomous Force for Automation eXecution) is a zero-dependency CLI that runs an autonomous AI company: 7 agents (Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance) + an orchestrator with persistent memory, over local JSON data in ~/.afax. Outbound actions are dry-run unless BOTH gates are set: \`config set live true\` AND --live per command. It runs 24/7 on a VPS via \`afax schedule run\` in cron plus \`afax serve\` for inbound webhooks. Docs: https://afax.online/docs.html`;
+const ABOUT = `AFAX (Autonomous Force for Automation eXecution) is a zero-dependency CLI that runs an autonomous AI company: 8 agents (Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance) + an orchestrator with persistent memory, over local JSON data in ~/.afax. Outbound actions are dry-run unless BOTH gates are set: \`config set live true\` AND --live per command. It runs 24/7 on a VPS via \`afax schedule run\` in cron plus \`afax serve\` for inbound webhooks. Docs: https://afax.online/docs.html`;
+
+// A compact "connected / not set" line so the model knows its real reach and
+// never promises a channel that isn't wired up.
+function connectionLine() {
+  try {
+    const conn = connections();
+    const on = conn.filter(([, ready]) => ready).map(([name]) => name);
+    const off = conn.filter(([, ready]) => !ready).map(([name]) => name);
+    return `connected: ${on.length ? on.join(', ') : 'none'} | not set: ${off.length ? off.join(', ') : 'none'}`;
+  } catch {
+    return 'unknown';
+  }
+}
 
 function systemPrompt() {
   const cfg = load();
@@ -75,6 +89,7 @@ function systemPrompt() {
     `Business: ${b.name || 'unnamed'} | Offer: ${b.offer || '—'} | ICP: ${b.icp || '—'} | workspace: ${cfg.workspace}`,
     `Company state: ${Object.entries(s).map(([k, v]) => `${k}=${v}`).join(' ')}`,
     `Outbound: ${cfg.live ? 'LIVE enabled globally' : 'dry-run (live=false)'} | Autonomy: ${cfg.autonomy}`,
+    `Connected channels: ${connectionLine()}`,
     mem ? `Recent memory:\n${mem}` : '',
     '',
     'Filesystem tools (read-only, for inspecting what the user references):',
@@ -84,11 +99,23 @@ function systemPrompt() {
     COMMANDS,
     '',
     'Respond with VALID JSON ONLY: {"say":"<what you tell the user, plain text>","run":["<command>", ...]}',
-    '- "run" is optional; include it only when executing commands or fs tools serves the request. Max ' + MAX_ACTIONS_PER_TURN + ' per turn.',
-    '- After commands execute you will receive their terminal output and can continue (run more) or answer.',
-    '- Prefer inspecting with fs tools over guessing or asking. Chain: fs explore → read → plan → afax commands.',
+    '',
+    'HOW TO ACT — be genuinely autonomous, not a chatbot:',
+    '- Default to DOING. When the user asks for an outcome, plan it and run the steps end-to-end in one go,',
+    '  then report the real result. Do not ask "want me to?" for anything safe — read-only and dry-run work',
+    '  needs no permission. Only pause before a real outbound send (--live) or anything destructive/irreversible.',
+    '- Chain multiple commands in one turn (explore → generate → preview) instead of doing one and stopping.',
+    '',
+    'KNOW YOUR LIMITS — be honest, never stall or pad:',
+    '- A channel marked "not set" above is NOT usable. If a request needs it (e.g. send email but Email not set,',
+    '  source real contacts but Leads not set), say so in one line and give the exact fix:',
+    '  "Email isn\'t connected — run `afax connect email` first." Then stop or do what you CAN do. Never pretend it worked.',
+    '- If a command output shows an error, "not configured", or stays dry-run, report that plainly — do not spin it as success.',
+    '- If a task is outside AFAX (no command/integration covers it), say so directly and suggest the closest thing. Don\'t invent capabilities.',
     '- Never invent command output. Never use commands outside the list. Quote multi-word values.',
-    '- Outbound commands send real messages only when the user clearly asked; otherwise keep them dry-run (no --live).',
+    '- No filler. No motivational fluff. No restating menus. If you cannot do something, the answer is what\'s blocking it',
+    '  and the single next step — short. A useful "I can\'t do X because Y, do Z" beats a paragraph of generic text.',
+    '- Outbound commands send real messages only when the user clearly asked AND the channel is connected; otherwise keep them dry-run.',
   ].filter(Boolean).join('\n');
 }
 

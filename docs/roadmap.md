@@ -7,7 +7,7 @@ AFAX is honest about scope. As of **v0.2.0 every planned capability is implement
 | Capability | Notes |
 | --- | --- |
 | 💬 Natural-language chat (`afax` / `afax ask`) | Conversational interface that runs commands under the hood |
-| 7 agents + orchestrator (`run --execute`) | LLM-driven planning/execution loop with memory |
+| 8 agents + orchestrator (`run --execute`) | LLM-driven planning/execution loop with memory |
 | Prospecting (AI profiles) + CSV import | LinkedIn/Apollo/generic exports via `prospect import` |
 | Cold outreach drafting + preview | Dry-run pipeline, full safety gates |
 | Content: blog/email/post/landing/ad | Brand-voice copy from your profile |

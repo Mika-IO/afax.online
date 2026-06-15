@@ -4,7 +4,7 @@
 
 AFAX is a **zero-dependency Node.js CLI** that runs an autonomous AI company from your terminal. It targets **solo founders of digital businesses** who need a whole back office — prospecting, cold outreach, campaign management, content production, CRM, operations and finance — without hiring a team.
 
-Seven specialized agents operate over **your data** and **your LLM keys**, coordinated by an orchestrator with persistent memory. Install it on a laptop or a VPS and it works 24/7, delivering finished work to the CEO: you.
+Eight specialized agents operate over **your data** and **your LLM keys**, coordinated by an orchestrator with persistent memory (with a Context step that ingests your company first). Install it on a laptop or a VPS and it works 24/7, delivering finished work to the CEO: you.
 
 And you don't have to memorize commands: plain `afax` opens a **[natural-language chat](#/chat)** — describe what you want ("find 10 leads and draft outreach"), and AFAX runs the right commands for you, showing each one as it executes.
 
@@ -24,15 +24,15 @@ AFAX covers the full lifecycle of a digital business:
 
 | Stage | Agent | What happens |
 | --- | --- | --- |
-| 1. Learn | Context | Ingests your website, extracts offer / ICP / tone into a persistent profile |
-| 2. Prospect | 🎯 Prospect | Sources and qualifies leads (AI profiles, or real contacts via Hunter.io) |
-| 3. Reach out | 📨 Outreach | Writes personalized cold messages and sends them (email / WhatsApp / Telegram) |
-| 4. Market | 🚀 Marketing | 16 acquisition channels, campaign design, multichannel publishing |
-| 5. Create | ✍️ Content | Blog posts, emails, social posts, ad copy, landing copy, real image generation |
-| 6. Manage | 🤝 CRM | Unified contacts, stages, interaction history |
-| 7. Sell | 💰 Sales | Pipeline with weighted forecast, AI follow-ups, closing |
-| 8. Operate | 🤖 Automation | Make/Zapier-style flows wiring agents together |
-| 9. Account | 📊 Finance | Cash flow, MRR/ARR, invoices, AI CFO read-out |
+| Setup · Learn | Context | Ingests your website, extracts offer / ICP / tone into a persistent profile |
+| 1. Prospect | 🎯 Prospect | Sources and qualifies leads (AI profiles, or real contacts via Hunter.io) |
+| 2. Reach out | 📨 Outreach | Writes personalized cold messages and sends them (email / WhatsApp / Telegram) |
+| 3. Market | 🚀 Marketing | 16 acquisition channels, campaign design, multichannel publishing |
+| 4. Create | ✍️ Content | Blog posts, emails, social posts, ad copy, landing copy, real image generation |
+| 5. Manage | 🤝 CRM | Unified contacts, stages, interaction history |
+| 6. Sell | 💰 Sales | Pipeline with weighted forecast, AI follow-ups, closing |
+| 7. Operate | 🤖 Automation | Make/Zapier-style flows wiring agents together |
+| 8. Account | 📊 Finance | Cash flow, MRR/ARR, invoices, AI CFO read-out |
 
 Above all of them sits the **orchestrator** (`afax run`): it reads the whole company state, decides the highest-leverage next actions, and — if you allow it — executes them on its own. And the loop closes inbound: [`afax serve`](#/server) receives replies, payments and webhooks 24/7, answers with AI when you allow it, and fires your [automation flows](#/automation) on every event.
 

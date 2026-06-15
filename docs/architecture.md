@@ -96,7 +96,7 @@ Every module instantiates one `Agent` with a key, an emoji, and a role-specific 
 - `note()` — writes a fact to persistent memory after meaningful actions;
 - `online` — whether an LLM is reachable; modules use it to choose AI vs templated fallback.
 
-This is why one `context ingest` improves all seven agents at once: they share the profile and the memory store, not prompts.
+This is why one `context ingest` improves all eight agents at once: they share the profile and the memory store, not prompts.
 
 ## Key decisions
 

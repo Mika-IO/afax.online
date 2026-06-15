@@ -73,8 +73,8 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.1.0]
 
 ### Added
-- Initial CLI: 7 agents (Prospect, Outreach, Marketing, Sales, Content, CRM,
-  Automation) + Finance and an orchestrator, over local JSON in `~/.afax`.
+- Initial CLI: 8 agents (Prospect, Outreach, Marketing, Sales, Content, CRM,
+  Automation, Finance) and an orchestrator, over local JSON in `~/.afax`.
 - Multi-workspace isolation, persistent memory, scheduler, deploy.
 - Provider config (Anthropic / OpenAI-compatible / Ollama), dry-run/live gates.
 - Docs site and guides.

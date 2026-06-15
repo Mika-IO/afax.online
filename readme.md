@@ -1,53 +1,25 @@
 <div align="center">
 
 ```text
-█████╗ ███████╗ █████╗ ██╗  ██╗
-██╔══██╗██╔════╝██╔══██╗╚██╗██╔╝
-███████║█████╗  ███████║ ╚███╔╝
-██╔══██║██╔══╝  ██╔══██║ ██╔██╗
-██║  ██║██║     ██║  ██║██╔╝ ██╗
-╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝
+                                             █████╗ ███████╗ █████╗ ██╗  ██╗
+                                              ██╔══██╗██╔════╝██╔══██╗╚██╗██╔╝
+                                             ███████║█████╗  ███████║ ╚███╔╝
+                                             ██╔══██║██╔══╝  ██╔══██║ ██╔██╗
+                                              ██║  ██║██║     ██║  ██║██╔╝ ██╗
+                                             ═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝
 ```
 
-### Your company on autopilot with AI
+### Your company on autopilot
 
-**AFAX** — **A**utonomous **F**orce for **A**utomation e**X**ecution
-
-A multi-agent CLI that runs a digital business end-to-end: prospecting, cold outreach,
-campaigns, content, CRM, operations and finance — built for **solo founders**,
-installable on a **VPS**, working **24/7** and delivering finished work to the CEO: you.
+**The open-source AI workforce that runs your business while you sleep** — prospecting, outreach, marketing, content, sales, CRM, ops and finance. One zero-dependency CLI. Eight agents. One orchestrator. Runs 24/7 on a $5 VPS.
 
 <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A518-339933?logo=node.js&logoColor=white"> <img alt="deps" src="https://img.shields.io/badge/runtime%20deps-0-ff7a1a"> <img alt="tests" src="https://img.shields.io/badge/tests-passing-46a758"> <img alt="license" src="https://img.shields.io/badge/license-MIT-46a758"> <img alt="models" src="https://img.shields.io/badge/LLM-Anthropic%20%C2%B7%20OpenAI%20%C2%B7%20Ollama-8a63d2">
 
-**[Website](https://afax.online)** · **[Documentation](https://afax.online/docs.html)** · **[Quick start](https://afax.online/docs.html#/quickstart)** · **[Run 24/7 on a VPS](https://afax.online/docs.html#/vps)** · **[Roadmap](https://afax.online/docs.html#/roadmap)**
+**[Website](https://afax.online)** · **[Docs](https://afax.online/docs.html)** · **[Quick start](https://afax.online/docs.html#/quickstart)** · **[Run on a VPS](https://afax.online/docs.html#/vps)**
 
 <br>
 
-<!-- Drop a real screenshot at docs/media/afax-cli.png and swap the block below for:
-     <img alt="AFAX — natural-language session in the terminal" src="docs/media/afax-cli.png" width="760"> -->
-
-```text
-  █████╗ ███████╗ █████╗ ██╗  ██╗
-  ██╔══██╗██╔════╝██╔══██╗╚██╗██╔╝
-  ███████║█████╗  ███████║ ╚███╔╝
-  ██╔══██║██╔══╝  ██╔══██║ ██╔██╗
-  ██║  ██║██║     ██║  ██║██╔╝ ██╗
-  ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝
-
-  Your company on autopilot  ·  acme  ·  openai/gpt-5  ·  ○ dry-run
-
-  WHAT I CAN DO — just ask in plain language:
-    grow        find leads, write & send outreach, run campaigns
-    sell        manage pipeline, follow up deals, send invoices
-    create      blogs, emails, posts, ads, images — on brand
-    know        status across all modules, finance & CRM read-outs
-    automate    flows, schedules, run the next best actions for you
-
-  ❯ how are we doing? source 10 leads for dental clinics and draft outreach
-    ⏺ afax status   ⏺ afax prospect --target "dental clinics"   ⏺ afax outreach
-  ● Pipeline $12,000 across 2 deals, MRR $99. Sourced & scored 10 leads,
-    drafted 5 cold emails — all dry-run. Want me to preview them?
-```
+<img alt="AFAX — natural-language session in the terminal" src="docs/media/afax-cli.svg" width="720">
 
 </div>
 
@@ -55,164 +27,82 @@ installable on a **VPS**, working **24/7** and delivering finished work to the C
 
 ## What is AFAX?
 
-AFAX is a **zero-dependency Node.js CLI** where seven specialized AI agents — Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance — operate over **your data** with **your LLM keys**, coordinated by an **orchestrator** with persistent memory that plans and executes the highest-leverage next actions on its own.
+AFAX is a **zero-dependency Node.js CLI** that runs an autonomous AI company from your terminal. Eight specialized agents — **Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance** — work over **your data** with **your LLM keys**, coordinated by an **orchestrator** that plans and executes the highest-leverage next moves on its own.
 
-You don't memorize commands. Plain `afax` opens a **natural-language session** — talk to your company, and AFAX runs the real commands under the hood, showing each one:
+You don't memorize commands. Plain `afax` opens a **natural-language session** — talk to your company, and AFAX runs the real commands under the hood:
 
 ```text
-$ afax
-❯ how are we doing? source 10 leads for dental clinics and draft outreach
+❯ source 10 leads for dental clinics and draft cold emails
 
-⏺ afax status
 ⏺ afax prospect --target "dental clinics" --limit 10
-⏺ afax outreach --channel email --limit 5
+⏺ afax outreach --channel email --limit 10
 
-● Pipeline is $12,000 across 2 deals, MRR $99. I sourced and scored 10
-  leads and drafted 5 personalized cold emails — all dry-run, nothing
-  sent. Want me to preview them?
+● Sourced & scored 10 dental-clinic leads and drafted 10 personalized
+  emails — all dry-run, nothing sent. Email isn't connected yet, so to
+  actually send: run `afax connect email`, then `... --live`.
 ```
 
-Platforms like [GoHighLevel](https://www.gohighlevel.com/) showed one tool can replace a stack of marketing/sales SaaS. Agents like [Polsia](https://polsia.com/) and [Hermes](https://hermes-agent.nousresearch.com/) showed AI can actually *run* operations. AFAX rebuilds those ideas the way a developer wants them: a composable CLI, local-first JSON state, cron-native autonomy, and safety gates in front of everything outbound.
-
-```text
- you (CEO) ──── 💬 chat / ask · goals · approvals · --live
-    │
-    ▼
- 🧠 ORCHESTRATOR ── plans & executes via persistent memory
-    │
-    ├── 🎯 Prospect    leads sourced, scored, imported ──► 🤝 CRM
-    ├── 📨 Outreach    personalized cold email / WhatsApp / Telegram
-    ├── 🚀 Marketing   16 channels · campaigns · publishing · paid ads
-    ├── ✍️  Content     blog · email · posts · ads · real images
-    ├── 💰 Sales       pipeline · weighted forecast · closing ──► 📊 Finance
-    ├── 🤖 Automation  event-triggered flows wiring agents together
-    └── 📊 Finance     cash flow · MRR/ARR · Stripe invoices · AI CFO
-    │            ▲
-    ▼            │ events: lead.new · deal.won · message.received · payment.received
- ~/.afax/*.json  │
-                 │
- 🌐 afax serve ──┘  inbound: replies · payments · webhooks · asset hosting · auto-reply
-```
-
-## Highlights
-
-- 💬 **Natural language first** — `afax` is a conversational session (think Claude Code for your company); `afax ask "..."` is the scriptable one-shot.
-- 🧠 **Autonomous orchestration** — `afax run --execute`: reads the whole company state, decides the 2–4 highest-leverage moves, executes them, remembers what it did.
-- 🌐 **Inbound 2-way** — `afax serve`: webhooks for Telegram/WhatsApp/email/Stripe, an inbox, AI auto-reply in your brand voice, and public hosting for generated images.
-- 🔔 **Event-driven flows** — `lead.new`, `deal.won`, `message.received`, `payment.received` fire your automation flows the moment they happen.
-- 💳 **Payments** — invoices grow real Stripe payment links; the webhook marks them paid and books revenue automatically.
-- 📈 **Paid ads** — `marketing ads` designs the campaign and creates it (paused) in Meta Ads with your budget.
-- 🏠 **Local-first** — all state in human-readable JSON under `~/.afax/`. Nothing leaves your machine except the API calls you configure.
-- 🔁 **Multi-model** — Anthropic, any OpenAI-compatible endpoint (OpenAI, Groq, OpenRouter, vLLM, LM Studio…), or **Ollama fully offline**. Switch with one command.
-- 🔒 **Safe by default** — every outbound action (email, posts, DMs, deploys) is **dry-run** until two explicit gates are open: global `live` **and** per-command `--live`. Enforced at a single choke-point in the code.
-- 📦 **Zero runtime dependencies** — only the Node standard library. Even the SMTP client and `.env` loader are built in. Nothing to compile, no supply chain.
-- 🏢 **Multi-company** — isolated workspaces per business: own profile, credentials, data, memory. Built for agencies and serial founders.
-- 🔌 **Real connectors** — Resend/SendGrid/SMTP email, Meta (Facebook/Instagram/WhatsApp), Telegram/Slack/Discord, Hunter.io lead sourcing, image generation, SSH deploys.
-- ⏰ **24/7 on a $5 VPS** — natural-language scheduler + one cron line. No daemon to babysit.
+It's the developer's take on tools like [GoHighLevel](https://www.gohighlevel.com/) (one app replacing a SaaS stack) and agents like [Polsia](https://polsia.com/) / [Hermes](https://hermes-agent.nousresearch.com/) (AI that *runs* operations): a composable CLI, local-first JSON state, cron-native autonomy, and a hard safety gate in front of everything outbound.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/mika-io/afax.online.git
 cd afax.online
-npm install -g .                  # creates the `afax` command (Node ≥ 18, instant — no deps)
+npm install -g .                 # the `afax` command — Node ≥ 18, instant, zero deps
 
-afax init                         # provider + business profile (~60s)
-afax context ingest https://you.com               # AFAX learns your company
-afax prospect --target "solo SaaS founders" --limit 10
-afax outreach --channel email --limit 5           # drafts only — nothing is sent
-afax status                                       # whole-company dashboard
-afax run                                          # the orchestrator plans your next moves
+afax init                        # provider + business profile (~60s)
+afax context ingest https://you.com   # AFAX learns your company from its site
+afax                             # start talking — "how are we doing?"
 ```
 
-No global install? `node bin/afax.js <command>` works identically.
+No global install? `node bin/afax.js <command>` works identically. Prefer a UI? `afax web` opens a local control panel (chat, integrations, database, usage).
 
-<details>
-<summary><b>Choose your model</b> (Anthropic · OpenAI-compatible · Ollama)</summary>
-
-```bash
-# Anthropic
-export ANTHROPIC_API_KEY=sk-ant-...
-afax config set provider anthropic
-afax config set providers.anthropic.model claude-sonnet-4-6
-
-# OpenAI / Groq / OpenRouter / vLLM / LM Studio…
-export OPENAI_API_KEY=sk-...
-afax config set provider openai
-afax config set providers.openai.baseUrl https://api.openai.com/v1
-
-# Ollama — fully offline, no key
-afax config set provider ollama
-afax config set providers.ollama.model llama3.1
-```
-
-Keys can live in a gitignored `.env`, your shell env, or config. Environment always wins and never touches disk.
-</details>
-
-## The agents
+## The eight agents
 
 | Agent | What it does | Try it |
 | --- | --- | --- |
-| 🎯 **Prospect** | Lead discovery & qualification — AI profiles with fit scores & buying signals, or **real contacts** via Hunter.io | `afax prospect --target "SaaS founders"` |
-| 📨 **Outreach** | Personalized cold messages per lead (email/WhatsApp/Telegram), dry-run pipeline, auto CRM logging | `afax outreach --channel email` |
-| 🚀 **Marketing** | 16 acquisition channels, AI campaign design, real multichannel publishing | `afax marketing campaign --channel email --goal "activate trials"` |
-| 💰 **Sales** | Pipeline + weighted forecast, AI follow-ups, closing (auto-books revenue) | `afax sales pipeline --deal "Acme" --value 12000` |
+| 🎯 **Prospect** | Lead discovery & qualification — AI profiles with fit scores, or **real contacts** via Hunter.io | `afax prospect --target "SaaS founders"` |
+| 📨 **Outreach** | Personalized cold messages per lead (email/WhatsApp/Telegram), dry-run by default, auto-logged to CRM | `afax outreach --channel email` |
+| 🚀 **Marketing** | 16 acquisition channels, AI campaign design, real multichannel publishing & paid ads | `afax marketing campaign --channel email --goal "activate trials"` |
 | ✍️ **Content** | Blog, email, social, ads, landing copy + **real image generation** | `afax content blog --topic "automation ROI"` |
+| 💰 **Sales** | Pipeline + weighted forecast, AI follow-ups, closing (auto-books revenue) | `afax sales pipeline --deal "Acme" --value 12000` |
 | 🤝 **CRM** | Unified contacts, stages, dated interaction history | `afax crm contact add "jane@acme.com"` |
 | 🤖 **Automation** | Make/Zapier-style flows composing any AFAX commands | `afax automation flow run "welcome"` |
 | 📊 **Finance** | Cash flow, MRR/ARR, invoices, 3-bullet AI CFO read-out | `afax finance report` |
 
-## The autonomous loop
+Above them sits the **orchestrator** — `afax run --execute` reads the whole company state, picks the 2–4 highest-leverage moves, executes them, and remembers what it did.
+
+## Why AFAX
+
+- 💬 **Natural language first** — `afax` is a conversational session (think Claude Code for your company); it's honest about what it can't do instead of faking it.
+- 🧠 **Actually autonomous** — the orchestrator plans and acts; the scheduler + one cron line keeps it running around the clock.
+- 🌐 **Two-way** — `afax serve` handles inbound webhooks (Telegram/WhatsApp/email/Stripe), an inbox, AI auto-reply, and hosting for generated images.
+- 🔒 **Safe by default** — every outbound action is **dry-run** until two gates are open: global `live` **and** per-command `--live`. Enforced at one choke-point — a new connector can't bypass it.
+- 🏠 **Local-first** — all state is human-readable JSON under `~/.afax/`. `cat` is a valid debugger. Nothing leaves your machine except the API calls you configure.
+- 🔁 **Multi-model** — Anthropic, any OpenAI-compatible endpoint (OpenAI, Groq, OpenRouter, vLLM, LM Studio…), or **Ollama fully offline**. Switch with one command.
+- 📦 **Zero dependencies** — only the Node standard library. Even the SMTP client and `.env` loader are built in. Nothing to compile, no supply chain.
+- 🏢 **Multi-company** — isolated workspaces per business: own profile, keys, data, memory.
+
+## Safety in one line
 
 ```bash
-afax config set autonomy execute                  # let the orchestrator act
-afax schedule "every day at 09:00" --do "run --execute"
-afax schedule "every day at 18:00" \
-  --do "marketing publish --platform telegram --topic 'daily status report' --live"
-
-# one cron line = the outbound heartbeat:
-*/15 * * * * afax schedule run
-
-# and the inbound ears (systemd/pm2):
-afax serve        # webhooks · inbox · AI auto-reply · asset hosting
+afax config set live true              # gate 1 (global)
+afax outreach --channel email --live   # gate 2 (per command)
 ```
 
-Install on any cheap VPS and the company plans, prospects, writes, **listens** and reports around the clock — full guide: **[Running 24/7 on a VPS](https://afax.online/docs.html#/vps)**.
+Anything less renders a full preview and changes nothing externally. `afax config set live false` freezes the whole company instantly.
 
-## Safety model
+## Free and open — or managed
 
-Nothing is ever sent unless **both** gates are open — one global, one per command:
+AFAX is **100% open source under [MIT](./LICENSE)** — the whole product, every agent, forever. Self-host it, fork it, build a business on it.
 
-```bash
-afax config set live true                  # gate 1
-afax outreach --channel email --live       # gate 2
-```
-
-Anything less renders a complete preview (dry-run) and changes nothing externally. All senders route through one guarded dispatcher, so a new connector can't bypass the gate. Set `live false` to freeze the company instantly.
+Don't want to run servers? **[AFAX Cloud](https://afax.online/#pricing)** is the managed version — same software, hosted, backed up and supported — and it funds the open-source work.
 
 ## Documentation
 
-Full docs at **[afax.online/docs.html](https://afax.online/docs.html)** — rendered from the plain markdown in [`docs/`](./docs).
-
-| Getting started | Core | Integrations | Reference |
-| --- | --- | --- | --- |
-| [Introduction](./docs/introduction.md) | [Orchestrator & autonomy](./docs/orchestrator.md) | [Overview & safety](./docs/integrations.md) | [Command reference](./docs/cli.md) |
-| [Installation](./docs/installation.md) | [Company context & memory](./docs/context.md) | [Email](./docs/email.md) · [Meta](./docs/meta.md) | [Architecture](./docs/architecture.md) |
-| [Quick start](./docs/quickstart.md) | [Workspaces](./docs/workspaces.md) | [Telegram/Slack/Discord](./docs/messaging.md) | [Troubleshooting](./docs/troubleshooting.md) |
-| [💬 Chat](./docs/chat.md) | [Scheduler](./docs/scheduler.md) · [🌐 Server](./docs/server.md) · [VPS 24/7](./docs/vps.md) | [Hunter/Apollo](./docs/leads.md) · [Media](./docs/media.md) · [Deploy](./docs/deploy.md) | [Roadmap](./docs/roadmap.md) · [Contributing](./docs/contributing.md) |
-| [Configuration](./docs/configuration.md) | | | |
-
-Plus one page per agent: [Prospect](./docs/prospect.md) · [Outreach](./docs/outreach.md) · [Marketing](./docs/marketing.md) · [Sales](./docs/sales.md) · [Content](./docs/content.md) · [CRM](./docs/crm.md) · [Automation](./docs/automation.md) · [Finance](./docs/finance.md) · [Export/import](./docs/export-import.md)
-
-## Status
-
-**Roadmap: zeroed.** Every planned capability shipped in v0.2.0 — details in the [roadmap](./docs/roadmap.md):
-
-| Capability | Status |
-| --- | --- |
-| NL chat, 7 agents, orchestrator, outreach drafting, content & image gen + auto-hosting, CRM/sales/finance, event-driven flows, scheduler, inbound server, workspaces | ✅ working |
-| Telegram / Slack / Discord publishing | ✅ working |
-| Email · Meta (posts, WhatsApp, **paid ads**) · Hunter/Apollo · **Stripe** · SSH deploy | 🔑 needs your keys |
+Full docs at **[afax.online/docs.html](https://afax.online/docs.html)**, rendered from the markdown in [`docs/`](./docs):
+[Quick start](./docs/quickstart.md) · [Chat](./docs/chat.md) · [Orchestrator](./docs/orchestrator.md) · [Integrations](./docs/integrations.md) · [Command reference](./docs/cli.md) · [Architecture](./docs/architecture.md) · [VPS 24/7](./docs/vps.md)
 
 ## Development
 
@@ -220,15 +110,10 @@ Plus one page per agent: [Prospect](./docs/prospect.md) · [Outreach](./docs/out
 npm test                                   # node --test, no frameworks
 AFAX_HOME=/tmp/afax-dev node bin/afax.js status   # isolated sandbox
 AFAX_DEBUG=1 afax run                      # full stack traces
+afax self-update                           # reinstall the CLI from local source
 ```
 
-~3,000 lines, zero runtime dependencies, one concern per file. Contributions welcome — read [contributing](./docs/contributing.md) first (keep it dependency-free, add a test, route outbound through the registry).
-
-## License
-
-**[MIT](./LICENSE)** — 100% open source. Use it, fork it, self-host it, build a business on it, forever, no strings attached.
-
-Prefer not to run the infra? **[AFAX Cloud](https://afax.online/#pricing)** is the managed version — same software, hosted, backed up and supported — and it funds the open-source work.
+Zero runtime dependencies, one concern per file. Contributions welcome — read [contributing](./docs/contributing.md) first (keep it dependency-free, add a test, route outbound through the registry).
 
 ---
 
