@@ -23,31 +23,7 @@ installable on a **VPS**, working **24/7** and delivering finished work to the C
 
 <br>
 
-<!-- Drop a real screenshot at docs/media/afax-cli.png and swap the block below for:
-     <img alt="AFAX — natural-language session in the terminal" src="docs/media/afax-cli.png" width="760"> -->
-
-```text
-  █████╗ ███████╗ █████╗ ██╗  ██╗
-  ██╔══██╗██╔════╝██╔══██╗╚██╗██╔╝
-  ███████║█████╗  ███████║ ╚███╔╝
-  ██╔══██║██╔══╝  ██╔══██║ ██╔██╗
-  ██║  ██║██║     ██║  ██║██╔╝ ██╗
-  ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝
-
-  Your company on autopilot  ·  acme  ·  openai/gpt-5  ·  ○ dry-run
-
-  WHAT I CAN DO — just ask in plain language:
-    grow        find leads, write & send outreach, run campaigns
-    sell        manage pipeline, follow up deals, send invoices
-    create      blogs, emails, posts, ads, images — on brand
-    know        status across all modules, finance & CRM read-outs
-    automate    flows, schedules, run the next best actions for you
-
-  ❯ how are we doing? source 10 leads for dental clinics and draft outreach
-    ⏺ afax status   ⏺ afax prospect --target "dental clinics"   ⏺ afax outreach
-  ● Pipeline $12,000 across 2 deals, MRR $99. Sourced & scored 10 leads,
-    drafted 5 cold emails — all dry-run. Want me to preview them?
-```
+<img alt="AFAX — natural-language session in the terminal" src="docs/media/afax-cli.svg" width="720">
 
 </div>
 
