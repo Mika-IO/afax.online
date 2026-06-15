@@ -32,7 +32,15 @@ const TOOLS = `
 fs ls <path>            list a directory (files + sizes)
 fs tree <path>          recursive listing (depth 3)
 fs read <path>          read a file (first ~6 KB)
-fs find <pattern> [--in <dir>]   find files by name/glob substring`.trim();
+fs find <pattern> [--in <dir>]   find files by name/glob substring
+browser open <url>      open a real headless browser at <url> → returns page text + numbered [i] elements
+browser read            re-read the current page (text + numbered elements)
+browser click <i>       click element [i] from the latest snapshot
+browser type <i> "<t>"  type text into field [i]
+browser enter           press Enter (submit)
+browser scroll up|down  scroll the page
+browser shot [name]     screenshot the page to ~/.afax/assets
+browser close           close the browser when done`.trim();
 
 const COMMANDS = `
 status | run [--execute --steps N] | memory [clear] | usage [--recent]
@@ -92,8 +100,11 @@ function systemPrompt() {
     `Connected channels: ${connectionLine()}`,
     mem ? `Recent memory:\n${mem}` : '',
     '',
-    'Filesystem tools (read-only, for inspecting what the user references):',
+    'Tools — local filesystem (read-only) and a real browser you can drive:',
     TOOLS,
+    'Browser: use it for anything the web fetch can\'t do — JS-rendered sites, research, filling forms,',
+    'checking a live page, comparing competitors. Loop: open → read the numbered elements → click/type → read again.',
+    'It\'s a real browser with no saved logins; if a task needs the user\'s credentials, say so instead of guessing.',
     '',
     'Available commands (exact syntax, no "afax" prefix):',
     COMMANDS,
@@ -111,6 +122,8 @@ function systemPrompt() {
     '  source real contacts but Leads not set), say so in one line and give the exact fix:',
     '  "Email isn\'t connected — run `afax connect email` first." Then stop or do what you CAN do. Never pretend it worked.',
     '- If a command output shows an error, "not configured", or stays dry-run, report that plainly — do not spin it as success.',
+    '- Self-correct: if a command fails on a fixable mistake (bad flag, wrong quoting, missing arg), fix it and retry once — don\'t give up or ask the user to do it.',
+    '- Verify before claiming done: when it\'s cheap, confirm the result with a read (status, *list, crm contact list…) instead of asserting an outcome you didn\'t check.',
     '- If a task is outside AFAX (no command/integration covers it), say so directly and suggest the closest thing. Don\'t invent capabilities.',
     '- Never invent command output. Never use commands outside the list. Quote multi-word values.',
     '- No filler. No motivational fluff. No restating menus. If you cannot do something, the answer is what\'s blocking it',
@@ -270,6 +283,29 @@ export function fsTool(args) {
   }
 }
 
+// Drive the headless browser (Playwright, optional). Returns text the agent observes.
+async function browserTool(args) {
+  const sub = args._[0];
+  const a1 = args._[1];
+  const unquote = (s) => String(s || '').replace(/^["']|["']$/g, '');
+  try {
+    const b = await import('./integrations/browser.js');
+    switch (sub) {
+      case 'open': case 'goto': return await b.goto(unquote(a1));
+      case 'read': return await b.read();
+      case 'click': return await b.click(a1);
+      case 'type': return await b.type(a1, unquote(args._.slice(2).join(' ')));
+      case 'enter': case 'press': return await b.press(unquote(a1) || 'Enter');
+      case 'scroll': return await b.scroll(a1 || 'down');
+      case 'shot': case 'screenshot': return 'Saved screenshot: ' + (await b.screenshot(a1));
+      case 'close': await b.close(); return 'Browser closed.';
+      default: return 'Unknown browser action. Use open|read|click|type|enter|scroll|shot|close.';
+    }
+  } catch (e) {
+    return 'Error: ' + e.message;
+  }
+}
+
 // Run one dispatched command while capturing its terminal output (for the model).
 async function execCapture(command) {
   const { dispatch } = await import('./cli.js');
@@ -371,6 +407,12 @@ async function turn(messages, userText, { stream = false } = {}) {
         results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
         continue;
       }
+      if (head === 'browser') {
+        log('\n' + c.dim('⏺ ' + cmd));
+        const out = await browserTool(parse(tokens.slice(1)));
+        results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
+        continue;
+      }
       if (BLOCKED.includes(head)) {
         results += `[${cmd}] blocked: "${head}" is interactive — tell the user to run it themselves.\n`;
         info(`Skipped interactive command: ${cmd}`);
@@ -450,6 +492,12 @@ export async function chatTurn(messages, userText, { onEvent = () => {} } = {}) 
         results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
         continue;
       }
+      if (head === 'browser') {
+        const out = await browserTool(parse(tokens.slice(1)));
+        onEvent({ type: 'command', cmd, out });
+        results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
+        continue;
+      }
       if (BLOCKED.includes(head)) {
         const out = `blocked: "${head}" is interactive — run it in the terminal.`;
         onEvent({ type: 'command', cmd, out });
@@ -494,6 +542,7 @@ export async function repl() {
     }
   } finally {
     rl.close();
+    try { (await import('./integrations/browser.js')).close(); } catch {}
     remember('chat', `Chat session ended (${Math.floor(messages.length / 2)} turns).`);
     if (session.calls) {
       log('');

@@ -80,6 +80,13 @@ export async function dispatch(argv) {
       const { cmd: web } = await import('./web.js');
       return web(args);
     }
+    case 'browser': {
+      const url = args._[0];
+      if (!url) return warn('Usage: afax browser <url>   (opens a headless browser and prints the page)');
+      const b = await import('./integrations/browser.js');
+      try { log(await b.goto(url)); } catch (e) { warn(e.message); } finally { await b.close(); }
+      return;
+    }
     case 'inbox':
       return inboxCmd();
     case 'version':
@@ -261,6 +268,7 @@ function help() {
   log(c.bold('  SETUP'));
   row('init', 'Interactive setup (provider, model, business profile)');
   row('context ingest <url>', 'Learn your company from its website');
+  row('browser <url>', 'Drive a real headless browser (needs: npm i playwright)');
   row('workspace use <name>', 'Switch company (multi-company isolated data)');
   row('export / import <file>', 'Back up or move a company');
   row('connect <platform>', 'Wire email / meta / telegram / leads / media …');

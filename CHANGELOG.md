@@ -8,6 +8,15 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.4.0] — 2026-06-15
 
 ### Added
+- **Browser capability (Hermes-style).** `afax browser <url>` and agent tools
+  (`browser open/read/click/type/enter/scroll/shot/close`) drive a real headless
+  browser via an optional, lazy-imported Playwright — the core stays zero-dep,
+  and a DOM snapshot returns the page text plus numbered interactive elements for
+  an act→observe loop. `renderHtmlToPng` lays the groundwork for premium media.
+  (`src/integrations/browser.js`)
+- **Self-critique vs Hermes / Claude Code** with applied fixes — the agent now
+  self-corrects on fixable command errors and verifies results before claiming
+  done. See [docs/comparison.md](docs/comparison.md).
 - **Deployable Cloud (`afax web` on Railway/any container).** `Dockerfile` +
   `railway.toml`; binds `0.0.0.0` and reads `PORT` automatically, persists to a
   `/data` volume (`AFAX_HOME`), `/healthz` for platform health checks. See
