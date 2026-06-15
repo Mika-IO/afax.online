@@ -144,6 +144,11 @@ export async function dispatch(argv) {
       return memoryCmd(args);
     case 'usage':
       return usageCmd(args);
+    case 'task':
+    case 'tasks': {
+      const { cmd: task } = await import('./agents/task.js');
+      return task(args);
+    }
     default:
       warn(`Unknown command: ${cmd}`);
       log(`Run ${c.cyan('afax help')} for the command list.`);
@@ -300,6 +305,7 @@ function help() {
   log('');
   log(c.bold('  AUTONOMY'));
   row('run [--execute]', 'Orchestrator plans & acts');
+  row('task add "<title>" | task list', 'Shared work board (todo → doing → done)');
   row('schedule "<when>" --do "<cmd>"', 'NL recurring tasks (cron-ready)');
   row('web [--port 8788] [--host H]', 'Web panel (chat/integrations/db) — deployable, token-auth');
   row('serve [--port 8787]', 'Inbound: webhooks, auto-reply, asset hosting');

@@ -38,6 +38,17 @@ export function useWorkspace(name) {
   return slug;
 }
 
+// Machine-readable list for the web UI: [{slug, name, active, leads, deals}].
+export function summary() {
+  const active = activeSlug();
+  const slugs = listSlugs().length ? listSlugs() : ['default'];
+  return slugs.map((slug) => {
+    const p = readWsProfile(slug);
+    const c = quickCounts(slug);
+    return { slug, name: p?.business?.name || slug, active: slug === active, leads: c.leads, deals: c.deals };
+  });
+}
+
 // afax workspace [list|create <name>|use <name>|rm <name>|current]
 export function cmd(args) {
   const action = args._[0] || 'list';

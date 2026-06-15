@@ -67,6 +67,7 @@ crm contact add "<email>" [--name --company] | crm contact list|show | crm note 
 automation flow add "<name>" --trigger "<t>" --steps "<cmd; cmd>" | automation flow list|run|rm
 finance revenue --source "<s>" --amount N [--type subscription] | finance expense --label "<l>" --amount N
 finance invoice --to "<who>" --amount N [--live] | finance report
+task add "<title>" [--detail "..."] | task list [--all] | task start|done|reopen|rm <id>
 schedule "<when>" --do "<cmd>" | schedule list|run|rm <id>
 export [--out f] | import <file> | connections | config show|get|set
 deploy --src <dir> [--run "<cmd>"] [--live]`.trim();
@@ -125,6 +126,8 @@ function systemPrompt() {
     '  then report the real result. Do not ask "want me to?" for anything safe — read-only and dry-run work',
     '  needs no permission. Only pause before a real outbound send (--live) or anything destructive/irreversible.',
     '- Chain multiple commands in one turn (explore → generate → preview) instead of doing one and stopping.',
+    '- For multi-step or longer work, track it on the shared board: `task add "..."`, mark `task start <id>` when you',
+    '  begin and `task done <id>` when finished, so the CEO can watch progress. Keep the board honest and current.',
     '',
     'KNOW YOUR LIMITS — be honest, never stall or pad:',
     '- A channel marked "not set" above is NOT usable. If a request needs it, say so and help connect it:',

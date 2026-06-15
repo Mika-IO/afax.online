@@ -59,6 +59,19 @@ export const PAGE = `<!doctype html>
   .status .s-badge::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--faint); }
   .status .s-badge.on { color:var(--green); border-color:rgba(66,193,120,.4); background:rgba(66,193,120,.08); }
   .status .s-badge.on::before { background:var(--green); box-shadow:0 0 8px var(--green); }
+  .ws { margin-bottom:10px; }
+  .ws select { width:100%; margin:0 0 6px; padding:8px 10px; font-size:12.5px; }
+  .ws button { width:100%; font-size:12px; padding:7px; }
+  .tcol { margin-bottom:14px; }
+  .tcol h4 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--faint); margin:0 0 8px; }
+  .titem { display:flex; align-items:center; gap:11px; background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:11px 13px; margin-bottom:7px; }
+  .titem .tdot { width:18px; height:18px; border-radius:50%; border:2px solid var(--line2); cursor:pointer; flex:0 0 auto; }
+  .titem.doing .tdot { border-color:#febc2e; background:radial-gradient(circle at 50% 50%, #febc2e 0 45%, transparent 46%); }
+  .titem.done .tdot { border-color:var(--green); background:var(--green); }
+  .titem .ttitle { flex:1; }
+  .titem.done .ttitle { color:var(--dim); text-decoration:line-through; }
+  .titem .tdel { background:none; border:0; color:var(--faint); cursor:pointer; font-size:16px; }
+  .titem .tdel:hover { color:var(--red); }
 
   /* main */
   main { height:100vh; overflow:hidden; display:flex; flex-direction:column; }
@@ -172,11 +185,13 @@ export const PAGE = `<!doctype html>
     <div class="brand"><span class="blocks">&#9648;&#9648;&#9648;</span> AFAX</div>
     <nav>
       <button data-tab="chat" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Chat</button>
+      <button data-tab="tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Tasks</button>
       <button data-tab="integrations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg> Integrations</button>
       <button data-tab="database"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Database</button>
       <button data-tab="usage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Usage</button>
     </nav>
     <div class="spacer"></div>
+    <div class="ws" id="wsBox"></div>
     <div class="status" id="sub"><div class="skel" style="width:70%"></div><div class="skel" style="width:50%"></div></div>
   </aside>
 
@@ -190,6 +205,12 @@ export const PAGE = `<!doctype html>
         <button class="btn icon" id="resetBtn" title="Reset conversation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
         <button class="btn act send" id="sendBtn" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></button>
       </div>
+    </section>
+
+    <section id="tasks" hidden>
+      <div class="head"><h2>Tasks</h2><p>The company work board — click the dot to move todo → doing → done.</p></div>
+      <div class="card"><div class="row"><input id="taskIn" placeholder="New task…  e.g. Draft Q3 outreach sequence" style="margin-top:0"><button class="btn act" id="taskAdd">Add</button></div></div>
+      <div id="taskBoard"></div>
     </section>
 
     <section id="integrations" hidden>
@@ -274,17 +295,63 @@ function mdfmt(t){
 }
 
 // ---- tabs ----
-var TABS = ["chat","integrations","database","usage"];
+var TABS = ["chat","tasks","integrations","database","usage"];
 document.querySelectorAll(".side nav button").forEach(function(b){ b.onclick = function(){ showTab(b.dataset.tab); }; });
 function showTab(name){
   TABS.forEach(function(t){ el(t).hidden = (t !== name); });
   document.querySelectorAll(".side nav button").forEach(function(b){ b.classList.toggle("active", b.dataset.tab === name); });
   try { localStorage.setItem("afax_tab", name); } catch(e){}
   if(name === "chat") el("msg").focus();
+  if(name === "tasks") loadTasks();
   if(name === "integrations"){ loadIntegrations(); loadConfig(); }
   if(name === "database") loadCollections();
   if(name === "usage") loadUsage();
 }
+
+// ---- workspaces (companies) ----
+function loadWorkspaces(){
+  j("/api/workspaces").then(function(d){
+    var ws = d.workspaces || [];
+    var opts = ws.map(function(w){ return '<option value="' + esc(w.slug) + '"' + (w.active ? " selected" : "") + ">" + esc(w.name) + "</option>"; }).join("");
+    el("wsBox").innerHTML = '<select id="wsSel">' + opts + '</select><button class="btn ghost" id="wsNew">+ New company</button>';
+    el("wsSel").onchange = function(){
+      api("/api/workspaces/use", { method:"POST", body: JSON.stringify({ slug: el("wsSel").value }) }).then(function(){ location.reload(); });
+    };
+    el("wsNew").onclick = function(){
+      var name = prompt("New company name:"); if(!name) return;
+      api("/api/workspaces", { method:"POST", body: JSON.stringify({ name: name }) }).then(function(){ location.reload(); });
+    };
+  });
+}
+
+// ---- tasks ----
+var TSTATUS = { todo:"doing", doing:"done", done:"todo" };
+function loadTasks(){
+  j("/api/data/tasks?limit=200").then(function(d){
+    var rows = (d.records || []);
+    var groups = { todo:[], doing:[], done:[] };
+    rows.forEach(function(t){ (groups[t.status] || groups.todo).push(t); });
+    var col = function(key, label){
+      var items = groups[key].map(function(t){
+        return '<div class="titem ' + key + '"><div class="tdot" data-adv="' + esc(t.id) + '" title="advance"></div>' +
+          '<div class="ttitle">' + esc(t.title) + '</div><button class="tdel" data-del="' + esc(t.id) + '">&#215;</button></div>';
+      }).join("");
+      return '<div class="tcol"><h4>' + label + " (" + groups[key].length + ")</h4>" + (items || '<p class="muted" style="font-size:12px">empty</p>') + "</div>";
+    };
+    el("taskBoard").innerHTML = col("doing","Doing") + col("todo","To do") + col("done","Done");
+    document.querySelectorAll("#taskBoard [data-adv]").forEach(function(b){ b.onclick = function(){ advTask(b.dataset.adv, rows); }; });
+    document.querySelectorAll("#taskBoard [data-del]").forEach(function(b){ b.onclick = function(){ api("/api/data/tasks/" + b.dataset.del, { method:"DELETE" }).then(loadTasks); }; });
+  });
+}
+function advTask(id, rows){
+  var t = rows.find(function(x){ return x.id === id; }); if(!t) return;
+  api("/api/data/tasks/" + id, { method:"PUT", body: JSON.stringify({ status: TSTATUS[t.status] || "doing" }) }).then(loadTasks);
+}
+el("taskAdd").onclick = function(){
+  var v = el("taskIn").value.trim(); if(!v) return;
+  api("/api/data/tasks", { method:"POST", body: JSON.stringify({ title: v, status:"todo" }) }).then(function(){ el("taskIn").value = ""; loadTasks(); });
+};
+el("taskIn").addEventListener("keydown", function(e){ if(e.key === "Enter") el("taskAdd").click(); });
 
 // ---- state ----
 function loadState(){
@@ -575,6 +642,7 @@ if(oauthResult){
 }
 loadState().then(function(){
   renderPills();
+  loadWorkspaces();
   el("msg").focus();
   if(oauthResult){ showTab("integrations"); toast(oauthResult === "ok" ? "Integration connected \\u2713" : "OAuth " + oauthResult, oauthResult !== "ok"); }
   else {

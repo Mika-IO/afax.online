@@ -202,6 +202,28 @@ async function handle(req, res, ctx) {
     });
   }
 
+  // ---- workspaces (companies) ----
+  if (path === '/api/workspaces' && req.method === 'GET') {
+    const { summary } = await import('./workspace.js');
+    return send(res, 200, { workspaces: summary() });
+  }
+  if (path === '/api/workspaces' && req.method === 'POST') {
+    const { name } = await json(req);
+    if (!name || !String(name).trim()) return send(res, 400, { error: 'name required' });
+    const { createWorkspace, useWorkspace, summary } = await import('./workspace.js');
+    createWorkspace(String(name).trim());
+    useWorkspace(String(name).trim());
+    ctx.messages.length = 0; // fresh conversation for the new company
+    return send(res, 200, { ok: true, workspaces: summary() });
+  }
+  if (path === '/api/workspaces/use' && req.method === 'POST') {
+    const { slug } = await json(req);
+    const { useWorkspace, summary } = await import('./workspace.js');
+    useWorkspace(String(slug || ''));
+    ctx.messages.length = 0;
+    return send(res, 200, { ok: true, workspaces: summary() });
+  }
+
   if (path === '/api/config' && req.method === 'GET') {
     return send(res, 200, { fields: flattenConfig(load()) });
   }

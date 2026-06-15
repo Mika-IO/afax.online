@@ -8,6 +8,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.4.0] — 2026-06-15
 
 ### Added
+- **Task board (Polsia-style).** A shared work board the CEO and agents both use:
+  `afax task add|list|start|done|reopen|rm` and a **Tasks** tab in the web panel
+  (todo → doing → done, click the dot to advance). The chat agent tracks
+  multi-step work on it so progress is visible. (`src/agents/task.js`)
+- **Company management in the web panel.** A workspace switcher in the sidebar —
+  pick a company or create a new one (isolated profile/data) without the CLI.
+  New endpoints: `GET/POST /api/workspaces`, `POST /api/workspaces/use`.
 - **One-click OAuth** for the services that offer it — **Slack, Meta, Discord**.
   "Connect with …" → provider consent screen → callback exchanges the code and
   stores the token (CSRF-protected), no paste. Gated on an OAuth app per provider
