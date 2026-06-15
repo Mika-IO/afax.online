@@ -1,4 +1,4 @@
-// The orchestrator — coordinates the 7 agents, holds the state picture,
+// The orchestrator — coordinates the 8 agents, holds the state picture,
 // proposes the highest-value next actions, and (optionally) executes them.
 import { chat } from './llm/index.js';
 import { load, hasLLM } from './config.js';

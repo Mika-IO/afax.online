@@ -31,7 +31,7 @@ installable on a **VPS**, working **24/7** and delivering finished work to the C
 
 ## What is AFAX?
 
-AFAX is a **zero-dependency Node.js CLI** where seven specialized AI agents — Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance — operate over **your data** with **your LLM keys**, coordinated by an **orchestrator** with persistent memory that plans and executes the highest-leverage next actions on its own.
+AFAX is a **zero-dependency Node.js CLI** where eight specialized AI agents — Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance — operate over **your data** with **your LLM keys**, coordinated by an **orchestrator** with persistent memory that plans and executes the highest-leverage next actions on its own.
 
 You don't memorize commands. Plain `afax` opens a **natural-language session** — talk to your company, and AFAX runs the real commands under the hood, showing each one:
 
@@ -186,7 +186,7 @@ Plus one page per agent: [Prospect](./docs/prospect.md) · [Outreach](./docs/out
 
 | Capability | Status |
 | --- | --- |
-| NL chat, 7 agents, orchestrator, outreach drafting, content & image gen + auto-hosting, CRM/sales/finance, event-driven flows, scheduler, inbound server, workspaces | ✅ working |
+| NL chat, 8 agents, orchestrator, outreach drafting, content & image gen + auto-hosting, CRM/sales/finance, event-driven flows, scheduler, inbound server, workspaces | ✅ working |
 | Telegram / Slack / Discord publishing | ✅ working |
 | Email · Meta (posts, WhatsApp, **paid ads**) · Hunter/Apollo · **Stripe** · SSH deploy | 🔑 needs your keys |
 

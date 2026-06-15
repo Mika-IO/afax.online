@@ -53,7 +53,7 @@ schedule "<when>" --do "<cmd>" | schedule list|run|rm <id>
 export [--out f] | import <file> | connections | config show|get|set
 deploy --src <dir> [--run "<cmd>"] [--live]`.trim();
 
-const ABOUT = `AFAX (Autonomous Force for Automation eXecution) is a zero-dependency CLI that runs an autonomous AI company: 7 agents (Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance) + an orchestrator with persistent memory, over local JSON data in ~/.afax. Outbound actions are dry-run unless BOTH gates are set: \`config set live true\` AND --live per command. It runs 24/7 on a VPS via \`afax schedule run\` in cron plus \`afax serve\` for inbound webhooks. Docs: https://afax.online/docs.html`;
+const ABOUT = `AFAX (Autonomous Force for Automation eXecution) is a zero-dependency CLI that runs an autonomous AI company: 8 agents (Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance) + an orchestrator with persistent memory, over local JSON data in ~/.afax. Outbound actions are dry-run unless BOTH gates are set: \`config set live true\` AND --live per command. It runs 24/7 on a VPS via \`afax schedule run\` in cron plus \`afax serve\` for inbound webhooks. Docs: https://afax.online/docs.html`;
 
 function systemPrompt() {
   const cfg = load();
