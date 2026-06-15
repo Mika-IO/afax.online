@@ -1,12 +1,18 @@
 // Fetch a public web page and reduce it to readable text — for company
-// context ingestion. Native fetch, zero deps.
+// context ingestion. Native fetch, zero deps. URLs are agent-/user-controlled,
+// so every fetch passes the SSRF guard (no loopback/private/metadata targets).
 import { http } from './http.js';
+import { assertSafeUrl } from './ssrf.js';
 
 export async function fetchText(url, maxChars = 8000) {
-  if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+  url = await assertSafeUrl(url);
   let html;
   try {
-    const res = await fetch(url, { headers: { 'user-agent': 'AFAX/0.1 (+https://afax.online)' } });
+    const res = await fetch(url, {
+      headers: { 'user-agent': 'AFAX/0.1 (+https://afax.online)' },
+      redirect: 'error', // don't follow redirects into private space
+      signal: AbortSignal.timeout(15000),
+    });
     html = await res.text();
   } catch (e) {
     throw new Error(`Could not fetch ${url}: ${e.message}`);

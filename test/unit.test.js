@@ -20,6 +20,7 @@ const { createWorkspace, useWorkspace, listSlugs } = await import('../src/worksp
 const { buildExport } = await import('../src/data.js');
 const { fsTool, saySoFar } = await import('../src/chat.js');
 const { costOf, priceOf } = await import('../src/llm/pricing.js');
+const { assertSafeUrl } = await import('../src/integrations/ssrf.js');
 const { record, monthTotals, budgetState } = await import('../src/usage.js');
 
 test('parse: flags, values, =, positionals, booleans', () => {
@@ -48,6 +49,12 @@ test('fsTool: read-only filesystem inspection', () => {
   assert.match(find, /openai\.js/);
   assert.match(fsTool(parse(['read', 'nope.xyz'])), /no such path/);
   assert.match(fsTool(parse(['warp'])), /unknown fs tool/);
+});
+
+test('ssrf: blocks loopback/private/metadata, non-http schemes', async () => {
+  for (const u of ['http://127.0.0.1', 'http://10.0.0.5', 'http://169.254.169.254/latest', 'http://localhost', 'file:///etc/passwd', 'http://[::1]']) {
+    await assert.rejects(assertSafeUrl(u), undefined, `should block ${u}`);
+  }
 });
 
 test('pricing: cost by model prefix, fallback for unknown', () => {

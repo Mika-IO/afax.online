@@ -1,0 +1,13 @@
+.git
+.gitignore
+test
+docs
+*.md
+index.html
+docs.html
+CNAME
+sitemap.xml
+robots.txt
+Dockerfile
+.dockerignore
+railway.toml

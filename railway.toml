@@ -1,0 +1,13 @@
+# Railway deployment config. One service, Docker build, persistent volume.
+# In the Railway dashboard: add a Volume mounted at /data, and set the variables
+# AFAX_WEB_TOKEN (a long random secret) plus your LLM key (e.g. OPENAI_API_KEY).
+
+[build]
+builder = "dockerfile"
+
+[deploy]
+startCommand = "node bin/afax.js web"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5

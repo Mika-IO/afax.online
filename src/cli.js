@@ -21,7 +21,7 @@ import * as context from './agents/context.js';
 import * as outreach from './agents/outreach.js';
 import * as deploy from './agents/deploy.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 
 // ---- arg parsing -----------------------------------------------------------
 export function parse(argv) {
@@ -178,7 +178,7 @@ function configCmd(args) {
     return;
   }
   if (action === 'get') {
-    return log(JSON.stringify(getPath(cfg, args._[1]), null, 2));
+    return log(JSON.stringify(maskSecrets(args._[1], getPath(cfg, args._[1])), null, 2));
   }
   if (action === 'set') {
     const path = args._[1];
@@ -186,7 +186,7 @@ function configCmd(args) {
     if (!path) return warn('Usage: afax config set <path> <value>   e.g. afax config set providers.anthropic.apiKey sk-...');
     setPath(cfg, path, coerce(value));
     save(cfg);
-    return ok(`Set ${c.bold(path)} = ${path.includes('apiKey') ? '•••' : value}`);
+    return ok(`Set ${c.bold(path)} = ${SECRET_KEY.test(path.split('.').pop()) ? '•••' : value}`);
   }
   warn('Usage: afax config show|get <path>|set <path> <value>|path');
 }
@@ -290,7 +290,7 @@ function help() {
   log(c.bold('  AUTONOMY'));
   row('run [--execute]', 'Orchestrator plans & acts');
   row('schedule "<when>" --do "<cmd>"', 'NL recurring tasks (cron-ready)');
-  row('web [--port 8788]', 'Local web panel: chat, integrations, database');
+  row('web [--port 8788] [--host H]', 'Web panel (chat/integrations/db) — deployable, token-auth');
   row('serve [--port 8787]', 'Inbound: webhooks, auto-reply, asset hosting');
   row('inbox', 'Inbound messages received by the server');
   row('memory', 'What the agents remember');
@@ -311,8 +311,23 @@ function row(cmd, desc) {
 function getPath(obj, path) {
   return path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
 }
+
+// Never print real secret values (apiKey/secret/token/pass) — `config get` is
+// reachable from the chat agent and could be tricked into exfiltrating keys.
+const SECRET_KEY = /(key|secret|token|pass)$/i;
+function maskSecrets(path, value) {
+  const leaf = String(path || '').split('.').pop();
+  if (value && typeof value === 'object') {
+    const out = Array.isArray(value) ? [] : {};
+    for (const [k, v] of Object.entries(value)) out[k] = maskSecrets(k, v);
+    return out;
+  }
+  if (SECRET_KEY.test(leaf) && value) return '••• (set — hidden)';
+  return value;
+}
 function setPath(obj, path, value) {
   const keys = path.split('.');
+  if (keys.some((k) => k === '__proto__' || k === 'constructor' || k === 'prototype')) return; // prototype-pollution guard
   const last = keys.pop();
   const target = keys.reduce((o, k) => (o[k] ??= {}), obj);
   target[last] = value;

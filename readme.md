@@ -86,7 +86,9 @@ Anything less renders a full preview and changes nothing externally. `afax confi
 
 AFAX is **100% open source under [MIT](./LICENSE)** — the whole product, every agent, forever. Self-host it, fork it, build a business on it.
 
-Don't want to run servers? **[AFAX Cloud](https://afax.online/#pricing)** is the managed version — same software, hosted, backed up and supported — and it funds the open-source work.
+`afax web` is the same control panel made deployable: push the included `Dockerfile` to **Railway** (or any container host) for a login-gated, HTTPS web AFAX running 24/7 — see [Deploy to the cloud](./docs/cloud.md) and the [Security review](./docs/security.md).
+
+Don't want to run servers yourself? **[AFAX Cloud](https://afax.online/#pricing)** is the managed version — same software, hosted, backed up and supported — and it funds the open-source work.
 
 ## Documentation
 

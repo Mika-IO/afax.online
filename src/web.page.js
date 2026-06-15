@@ -1,6 +1,6 @@
 // The AFAX web control panel — a single self-contained page (no build, no deps).
-// Served by web.js with __TOKEN__ replaced. The embedded client script avoids
-// backticks and ${...} so it can live safely inside this template literal.
+// Served by web.js to authenticated sessions (cookie auth). The embedded client
+// script avoids backticks and ${...} so it can live safely in this template literal.
 // Performance notes: token streaming is batched through requestAnimationFrame,
 // markdown is rendered once on completion (not per token), and autoscroll only
 // engages when the user is already near the bottom.
@@ -239,12 +239,17 @@ export const PAGE = `<!doctype html>
 <div id="toast"></div>
 
 <script>
-var TOKEN = "__TOKEN__" || new URLSearchParams(location.search).get("token");
 var STATE = null;
 var ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
-function api(path, opts){ opts = opts || {}; opts.headers = Object.assign({ "x-afax-token": TOKEN, "content-type": "application/json" }, opts.headers || {}); return fetch(path, opts); }
-function j(path, opts){ return api(path, opts).then(function(r){ return r.json(); }).catch(function(e){ toast("Network error", true); throw e; }); }
+// Auth is an HttpOnly cookie set at login; same-origin fetch sends it automatically.
+// A 401 means the session expired — bounce to the login screen.
+function api(path, opts){
+  opts = opts || {}; opts.credentials = "same-origin";
+  opts.headers = Object.assign({ "content-type": "application/json" }, opts.headers || {});
+  return fetch(path, opts).then(function(r){ if(r.status === 401){ location.href = "/"; throw new Error("unauthorized"); } return r; });
+}
+function j(path, opts){ return api(path, opts).then(function(r){ return r.json(); }).catch(function(e){ if(String(e.message) !== "unauthorized") toast("Network error", true); throw e; }); }
 function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function el(id){ return document.getElementById(id); }
 function toast(m, err){ var t = el("toast"); t.textContent = m; t.className = err ? "show err" : "show"; clearTimeout(toast._t); toast._t = setTimeout(function(){ t.className = ""; }, 1900); }

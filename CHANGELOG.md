@@ -5,6 +5,27 @@ All notable changes to AFAX are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-06-15
+
+### Added
+- **Deployable Cloud (`afax web` on Railway/any container).** `Dockerfile` +
+  `railway.toml`; binds `0.0.0.0` and reads `PORT` automatically, persists to a
+  `/data` volume (`AFAX_HOME`), `/healthz` for platform health checks. See
+  [docs/cloud.md](docs/cloud.md).
+
+### Security
+- **Real auth for the web panel.** Refuses to bind a public host without
+  `AFAX_WEB_TOKEN`; token now travels as an **HttpOnly, SameSite=Strict** cookie
+  (login form) or `x-afax-token` header — never in the URL; constant-time
+  comparison; failed-login throttle; CSP + `X-Frame-Options`/`nosniff`/
+  `Referrer-Policy` on every response.
+- **SSRF guard** on `context ingest` — blocks loopback/private/link-local and
+  cloud-metadata (`169.254.169.254`) targets and won't follow redirects.
+- **No secret read-back** — `config get` masks `key/secret/token/pass` values, so
+  the chat agent can't be tricked into printing your keys.
+- **Prototype-pollution guard** on `config set` paths.
+- Full critical review in [docs/security.md](docs/security.md).
+
 ## [0.3.0] — 2026-06-15
 
 ### Added
