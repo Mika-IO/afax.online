@@ -72,6 +72,13 @@ export const CATALOG = [
     test: async (cfg) => testGet(`https://api.hunter.io/v2/account?api_key=${cfg.integrations.leads.apiKey}`),
   },
   {
+    key: 'x', label: 'X (xurl)', kind: 'integration', secret: 'integrations.x.bearerToken',
+    get: 'https://developer.x.com/en/portal/dashboard',
+    fields: [{ path: 'integrations.x.bearerToken', label: 'API bearer token', secret: true, placeholder: 'AAAA… (X API v2)' }],
+    detect: null,
+    test: async (cfg) => testGet('https://api.x.com/2/users/me', { authorization: `Bearer ${cfg.integrations.x.bearerToken}` }),
+  },
+  {
     key: 'meta', label: 'Meta (FB/IG/WhatsApp)', kind: 'integration', secret: 'integrations.meta.accessToken',
     get: 'https://developers.facebook.com/tools/explorer/',
     fields: [

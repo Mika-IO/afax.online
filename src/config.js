@@ -30,6 +30,7 @@ const WS_DEFAULTS = {
     media: { driver: 'openai', apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-image-1' },
     deploy: { host: '', user: '', path: '', key: '' },
     stripe: { secretKey: '', webhookSecret: '' },
+    x: { bearerToken: '' },
     server: { port: 8787, publicUrl: '', autoreply: false, verifyToken: 'afax' },
   },
 };
