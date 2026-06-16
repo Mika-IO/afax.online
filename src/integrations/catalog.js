@@ -89,7 +89,48 @@ export const CATALOG = [
     detect: /^EAA[A-Za-z0-9]{20,}$/,
     test: async (cfg) => testGet(`https://graph.facebook.com/v21.0/me?access_token=${cfg.integrations.meta.accessToken}`),
   },
+  {
+    key: 'meta_ads', label: 'Meta Ads', kind: 'integration', secret: 'integrations.meta.accessToken',
+    get: 'https://business.facebook.com/adsmanager',
+    fields: [
+      { path: 'integrations.meta.adAccountId', label: 'Ad account ID', placeholder: 'act_…' },
+      { path: 'integrations.meta.accessToken', label: 'Access token', secret: true, placeholder: 'EAAB…' },
+    ],
+    detect: null,
+    test: async (cfg) => (cfg.integrations.meta.adAccountId
+      ? testGet(`https://graph.facebook.com/v21.0/${cfg.integrations.meta.adAccountId}?access_token=${cfg.integrations.meta.accessToken}`)
+      : { ok: false, msg: 'set the ad account id' }),
+  },
+  {
+    key: 'mcp', label: 'Meta MCP', kind: 'integration', secret: 'integrations.mcp.token',
+    get: 'https://developers.facebook.com',
+    fields: [
+      { path: 'integrations.mcp.url', label: 'MCP server URL', placeholder: 'https://…' },
+      { path: 'integrations.mcp.token', label: 'Auth token', secret: true, placeholder: '…' },
+    ],
+    detect: null,
+    test: async () => ({ ok: true, msg: 'saved (no live check)' }),
+  },
+  {
+    key: 'zernio', label: 'zernio', kind: 'integration', secret: 'integrations.zernio.apiKey',
+    get: '',
+    fields: [{ path: 'integrations.zernio.apiKey', label: 'API key', secret: true, placeholder: '…' }],
+    detect: null,
+    test: async () => ({ ok: true, msg: 'saved' }),
+  },
 ];
+
+// Category for grouping in the UI (matches the product design).
+export const GROUPS = {
+  openai: 'AI models', anthropic: 'AI models',
+  email: 'Email',
+  telegram: 'Messaging', slack: 'Messaging', discord: 'Messaging', meta: 'Messaging',
+  leads: 'Prospecting & data', zernio: 'Prospecting & data',
+  stripe: 'Payments',
+  meta_ads: 'Ads',
+  x: 'Protocol & automation', mcp: 'Protocol & automation',
+};
+export const GROUP_ORDER = ['AI models', 'Messaging', 'Email', 'Payments', 'Prospecting & data', 'Ads', 'Protocol & automation'];
 
 export function byKey(key) {
   return CATALOG.find((c) => c.key === key);

@@ -133,7 +133,9 @@
   .post:hover{border-color:var(--accent-line)}
   .post .thumb{position:relative;overflow:hidden;background:var(--bg-4);min-height:60px}
   .post .thumb img,.post .thumb video{width:100%;height:auto;display:block}
-  .post .thumb .txt{padding:16px;font:500 13px/1.6 var(--mono);color:var(--ink-2);white-space:pre-wrap;max-height:260px;overflow:hidden}
+  .post .thumb .txt{padding:16px 16px 30px;font:500 13px/1.6 var(--mono);color:var(--ink-2);white-space:pre-wrap;max-height:240px;overflow:hidden;cursor:pointer;position:relative}
+  .post .thumb .txt.full{max-height:none}
+  .post .thumb .txt:not(.full)::after{content:"⌄ expand";position:absolute;left:0;right:0;bottom:0;padding:14px 16px 8px;font:600 11px/1 var(--mono);color:var(--accent-2);text-align:center;background:linear-gradient(180deg,transparent,var(--bg-2))}
   .post .thumb .ch{position:absolute;top:10px;left:10px;font:600 11px/1 var(--mono);background:rgba(0,0,0,.55);backdrop-filter:blur(6px);padding:5px 9px;border-radius:7px}
   .post .meta{padding:13px}.post .meta .t{font-size:13.5px;font-weight:600;line-height:1.4}
   .post .meta .d{font-size:12px;color:var(--ink-3);margin-top:7px}
@@ -441,25 +443,32 @@ function loadContent(){
       var thumb;
       if(f && /\.(mp4|webm)$/i.test(f)) thumb='<video src="/api/asset?path='+encodeURIComponent(f)+'" controls preload="metadata"></video>';
       else if(f) thumb='<a href="/api/asset?path='+encodeURIComponent(f)+'" target="_blank"><img src="/api/asset?path='+encodeURIComponent(f)+'" loading="lazy"></a>';
-      else if(it.body) thumb='<div class="txt">'+esc(it.body.slice(0,600))+'</div>';
+      else if(it.body) thumb='<div class="txt" data-expand>'+esc(it.body)+'</div>';
       else thumb='<div class="txt muted">'+esc(it.format)+'</div>';
       return '<div class="post"><div class="thumb">'+thumb+'<div class="ch">'+esc(it.format)+'</div></div><div class="meta"><div class="t">'+esc((it.topic||it.format).slice(0,80))+'</div><div class="d">'+esc((it.createdAt||"").slice(0,10))+'</div></div></div>';
     }).join("");
+    document.querySelectorAll("#content [data-expand]").forEach(function(b){ b.onclick=function(){ b.classList.toggle("full"); }; });
   });
 }
 
 /* integrations */
 var MASK="__AFAX_SECRET_SET__";
+function intgCard(it){
+  var conn=it.connected;
+  var oauth=it.oauth&&it.oauth.supported&&it.oauth.ready
+    ? '<a class="tg-btn" style="text-decoration:none" href="/api/oauth/'+it.key+'/start">Connect ↗</a>' : "";
+  var fields=it.fields.map(function(f){ var ph=f.set?"set — leave blank to keep":(f.placeholder||""); return '<label>'+esc(f.label)+'</label><input type="'+(f.secret?"password":"text")+'" data-path="'+esc(f.path)+'" placeholder="'+esc(ph)+'">'; }).join("");
+  return '<div class="card"><div class="intg"><div class="lg">'+esc(it.label.slice(0,2))+'</div><div><div class="nm">'+esc(it.label)+'</div><div class="ds">'+(conn?"connected":(it.get?'<a href="'+esc(it.get)+'" target="_blank" style="color:var(--accent-2)">get key ↗</a>':"set up below"))+'</div></div><div class="tg">'+(oauth||'<button class="tg-btn '+(conn?"conn":"")+'" data-cfg="'+it.key+'">'+(conn?"Connected":"Configure")+'</button>')+'</div></div><div class="intg-fields" data-fields="'+it.key+'">'+fields+'<div style="margin-top:10px;display:flex;gap:8px"><button class="btn pri" data-save="'+it.key+'">Save</button><button class="btn" data-test="'+it.key+'">Test</button></div></div></div>';
+}
 function loadIntegrations(){
   j("/api/integrations").then(function(d){
-    el("intgWrap").innerHTML='<div class="grid g3">'+(d.integrations||[]).map(function(it){
-      var conn=it.connected;
-      var oauth=it.oauth&&it.oauth.supported&&it.oauth.ready
-        ? '<a class="tg-btn" style="text-decoration:none" href="/api/oauth/'+it.key+'/start">Connect ↗</a>' : "";
-      var fields=it.fields.map(function(f){ var ph=f.set?"set — leave blank to keep":(f.placeholder||""); return '<label>'+esc(f.label)+'</label><input type="'+(f.secret?"password":"text")+'" data-path="'+esc(f.path)+'" placeholder="'+esc(ph)+'">'; }).join("");
-      return '<div class="card"><div class="intg"><div class="lg">'+esc(it.label.slice(0,2))+'</div><div><div class="nm">'+esc(it.label)+'</div><div class="ds">'+(conn?"connected":(it.get?'<a href="'+esc(it.get)+'" target="_blank" style="color:var(--accent-2)">get key ↗</a>':""))+'</div></div><div class="tg">'+(oauth||'<button class="tg-btn '+(conn?"conn":"")+'" data-cfg="'+it.key+'">'+(conn?"Connected":"Configure")+'</button>')+'</div></div><div class="intg-fields" data-fields="'+it.key+'">'+fields+'<div style="margin-top:10px;display:flex;gap:8px"><button class="btn pri" data-save="'+it.key+'">Save</button><button class="btn" data-test="'+it.key+'">Test</button></div></div></div>';
-    }).join("")+'</div>';
-    document.querySelectorAll("#intgWrap [data-cfg]").forEach(function(b){ b.onclick=function(){ var f=document.querySelector('[data-fields="'+b.dataset.cfg+'"]'); f.classList.toggle("on"); }; });
+    var items=d.integrations||[]; var order=d.groupOrder||[];
+    var byGroup={}; items.forEach(function(it){ (byGroup[it.group]=byGroup[it.group]||[]).push(it); });
+    var groups=order.filter(function(g){ return byGroup[g]; }).concat(Object.keys(byGroup).filter(function(g){ return order.indexOf(g)<0; }));
+    el("intgWrap").innerHTML=groups.map(function(g){
+      return '<div class="sec-title">'+esc(g)+'</div><div class="grid g3">'+byGroup[g].map(intgCard).join("")+'</div>';
+    }).join("");
+    document.querySelectorAll("#intgWrap [data-cfg]").forEach(function(b){ b.onclick=function(){ document.querySelector('[data-fields="'+b.dataset.cfg+'"]').classList.toggle("on"); }; });
     document.querySelectorAll("#intgWrap [data-save]").forEach(function(b){ b.onclick=function(){ var box=document.querySelector('[data-fields="'+b.dataset.save+'"]'); var chg=[]; box.querySelectorAll("[data-path]").forEach(function(i){ if(i.value.trim()) chg.push({path:i.dataset.path,value:i.value.trim()}); }); if(!chg.length){ toast("Nothing to save"); return; } Promise.all(chg.map(function(c){ return api("/api/config",{method:"POST",body:JSON.stringify(c)}); })).then(function(){ toast("Saved"); loadIntegrations(); }); }; });
     document.querySelectorAll("#intgWrap [data-test]").forEach(function(b){ b.onclick=function(){ toast("Testing…"); j("/api/integrations/test",{method:"POST",body:JSON.stringify({key:b.dataset.test})}).then(function(r){ toast((r.ok?"✓ ":"✗ ")+(r.msg||"")); }); }; });
   });

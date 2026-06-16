@@ -275,13 +275,14 @@ async function handle(req, res, ctx) {
   }
 
   if (path === '/api/integrations' && req.method === 'GET') {
-    const { CATALOG, isConnected, getPath } = await import('./integrations/catalog.js');
+    const { CATALOG, isConnected, getPath, GROUPS, GROUP_ORDER } = await import('./integrations/catalog.js');
     const { providersStatus } = await import('./integrations/oauth.js');
     const cfg = load();
     const oauth = providersStatus();
     return send(res, 200, {
+      groupOrder: GROUP_ORDER,
       integrations: CATALOG.map((e) => ({
-        key: e.key, label: e.label, kind: e.kind, get: e.get, connected: isConnected(e, cfg),
+        key: e.key, label: e.label, kind: e.kind, get: e.get, group: GROUPS[e.key] || 'Other', connected: isConnected(e, cfg),
         oauth: oauth[e.key] || null,
         fields: e.fields.map((f) => ({ path: f.path, label: f.label, placeholder: f.placeholder || '', secret: !!f.secret, set: !!getPath(cfg, f.path) })),
       })),
@@ -435,28 +436,50 @@ function send(res, code, obj) {
 // ---- login page -------------------------------------------------------------
 const LOGIN = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>AFAX — sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  body{margin:0;height:100vh;display:grid;place-items:center;background:#0a0b0e;color:#edeff3;
-    font:15px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
-  form{background:#15171d;border:1px solid #23272f;border-radius:16px;padding:28px;width:320px;text-align:center;box-shadow:0 10px 34px -8px rgba(0,0,0,.55)}
-  .b{color:#ff8a3d;font-weight:800;letter-spacing:2px;font-size:22px;margin-bottom:6px}
-  p{color:#8c93a0;font-size:13px;margin:0 0 18px}
-  input{width:100%;padding:11px 13px;background:#0a0b0e;border:1px solid #2d323b;color:#edeff3;border-radius:10px;font:inherit;margin-bottom:12px}
-  input:focus{outline:none;border-color:#ff8a3d;box-shadow:0 0 0 3px rgba(255,138,61,.16)}
-  button{width:100%;padding:11px;border:0;border-radius:10px;background:linear-gradient(180deg,#ff8a3d,#ff6a2b);color:#23120a;font:inherit;font-weight:700;cursor:pointer}
-  .e{color:#f0564a;font-size:12px;min-height:16px;margin-top:10px}
+  :root{--bg:#0b0a09;--bg-2:#131110;--bg-3:#1a1715;--line:rgba(255,255,255,.07);--line-2:rgba(255,255,255,.13);--ink:#f4f1ed;--ink-3:#79726a;--accent:#ff6a1a;--accent-2:#ff8c45;--accent-soft:rgba(255,106,26,.13);--accent-line:rgba(255,106,26,.34);--red:#ff7a8a;--mono:'JetBrains Mono',ui-monospace,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+  .glow{position:fixed;inset:0;pointer-events:none}
+  .glow::before{content:"";position:absolute;top:-25%;right:-10%;width:55vw;height:55vw;background:radial-gradient(circle,rgba(255,106,26,.18),transparent 60%);filter:blur(20px)}
+  .glow::after{content:"";position:absolute;bottom:-25%;left:12%;width:42vw;height:42vw;background:radial-gradient(circle,rgba(255,106,26,.06),transparent 62%)}
+  .wrap{position:relative;z-index:1;width:360px;max-width:92vw}
+  .brand{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:22px}
+  .mark{display:flex;flex-direction:column;gap:3px}
+  .mark span{display:block;height:3px;border-radius:2px;background:var(--accent)}
+  .mark span:nth-child(1){width:24px}.mark span:nth-child(2){width:24px;opacity:.8}.mark span:nth-child(3){width:15px;opacity:.55}
+  .brand b{font-size:22px;font-weight:800;letter-spacing:.06em}
+  form{background:linear-gradient(180deg,var(--bg-2),var(--bg));border:1px solid var(--line-2);border-radius:18px;padding:26px;box-shadow:0 30px 80px -30px #000,0 0 60px -34px rgba(255,106,26,.6)}
+  h1{font-size:17px;font-weight:700;margin:0 0 5px;text-align:center}
+  p{color:var(--ink-3);font-size:13px;margin:0 0 20px;text-align:center}
+  label{display:block;font:600 11px/1 var(--mono);color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+  input{width:100%;padding:12px 14px;background:var(--bg-3);border:1px solid var(--line-2);color:var(--ink);border-radius:11px;font:inherit;font-size:14px;transition:.15s}
+  input:focus{outline:none;border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
+  button{width:100%;margin-top:16px;padding:13px;border:0;border-radius:11px;background:linear-gradient(180deg,var(--accent),#c24300);color:#1a0d00;font:inherit;font-weight:700;font-size:14px;cursor:pointer;transition:.15s;box-shadow:0 8px 22px -10px rgba(255,106,26,.7)}
+  button:hover{filter:brightness(1.06)}
+  .e{color:var(--red);font-size:12.5px;min-height:18px;margin-top:12px;text-align:center}
+  .foot{text-align:center;color:var(--ink-3);font-size:12px;margin-top:18px}
 </style></head><body>
-<form id="f">
-  <div class="b">&#9648;&#9648;&#9648; AFAX</div>
-  <p>Enter your access token</p>
-  <input id="t" type="password" placeholder="AFAX_WEB_TOKEN" autocomplete="current-password" autofocus>
-  <button type="submit">Sign in</button>
-  <div class="e" id="e"></div>
-</form>
+<div class="glow"></div>
+<div class="wrap">
+  <div class="brand"><div class="mark"><span></span><span></span><span></span></div><b>AFAX</b></div>
+  <form id="f">
+    <h1>Welcome back</h1>
+    <p>Your company on autopilot — sign in to continue.</p>
+    <label for="t">Access token</label>
+    <input id="t" type="password" placeholder="AFAX_WEB_TOKEN" autocomplete="current-password" autofocus>
+    <button type="submit">Sign in</button>
+    <div class="e" id="e"></div>
+  </form>
+  <div class="foot">Token-gated · local-first · open source</div>
+</div>
 <script>
 document.getElementById("f").addEventListener("submit",function(ev){ev.preventDefault();
+  var btn=document.querySelector("button"); btn.textContent="Signing in…"; btn.disabled=true;
   fetch("/api/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:document.getElementById("t").value})})
-  .then(function(r){ if(r.ok){location.href="/";} else {document.getElementById("e").textContent="Invalid token.";}})
-  .catch(function(){document.getElementById("e").textContent="Network error.";});
+  .then(function(r){ if(r.ok){location.href="/";} else {document.getElementById("e").textContent="Invalid token. Check AFAX_WEB_TOKEN."; btn.textContent="Sign in"; btn.disabled=false;}})
+  .catch(function(){document.getElementById("e").textContent="Network error."; btn.textContent="Sign in"; btn.disabled=false;});
 });
 </script></body></html>`;

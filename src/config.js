@@ -31,6 +31,8 @@ const WS_DEFAULTS = {
     deploy: { host: '', user: '', path: '', key: '' },
     stripe: { secretKey: '', webhookSecret: '' },
     x: { bearerToken: '' },
+    zernio: { apiKey: '' },
+    mcp: { url: '', token: '' },
     server: { port: 8787, publicUrl: '', autoreply: false, verifyToken: 'afax' },
   },
 };
