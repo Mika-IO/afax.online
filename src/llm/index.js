@@ -34,6 +34,7 @@ export async function chat(opts) {
     temperature: opts.temperature ?? 0.6,
     maxTokens: opts.maxTokens ?? 2048,
     onToken: opts.onToken,
+    signal: opts.signal,
   });
 
   // Providers return { text, usage }; tolerate a bare string for safety.

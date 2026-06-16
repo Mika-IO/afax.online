@@ -274,9 +274,14 @@ async function handle(req, res, ctx) {
     if (!hasLLM()) return send(res, 400, { error: 'No LLM configured.' });
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
     const { chatTurn } = await import('./chat.js');
-    const emit = (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`);
-    try { await chatTurn(ctx.messages, text, { onEvent: emit }); }
-    catch (e) { emit({ type: 'error', message: e.message }); }
+    // Stop generation when the client disconnects (the Stop button aborts the fetch).
+    const ac = new AbortController();
+    let finished = false;
+    req.on('close', () => { if (!finished) ac.abort(); });
+    const emit = (ev) => { try { res.write(`data: ${JSON.stringify(ev)}\n\n`); } catch {} };
+    try { await chatTurn(ctx.messages, text, { onEvent: emit, signal: ac.signal }); }
+    catch (e) { if (!ac.signal.aborted && e.name !== 'AbortError') emit({ type: 'error', message: e.message }); }
+    finished = true;
     return res.end();
   }
   if (path === '/api/chat/reset' && req.method === 'POST') {

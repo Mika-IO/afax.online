@@ -467,11 +467,12 @@ export function welcome() {
 // Programmatic, headless turn used by the web UI. Streams structured events via
 // onEvent: {type:'token',say} · {type:'say',text,usage} · {type:'command',cmd,out}
 // · {type:'done',final}. Shares the same engine, tools and budget as the CLI.
-export async function chatTurn(messages, userText, { onEvent = () => {} } = {}) {
+export async function chatTurn(messages, userText, { onEvent = () => {}, signal } = {}) {
   const { parse } = await import('./cli.js');
   messages.push({ role: 'user', content: userText });
   let final = '';
   for (let hop = 0; hop <= MAX_ACTIONS_PER_TURN; hop++) {
+    if (signal?.aborted) break;
     let json;
     let usage;
     try {
@@ -481,10 +482,12 @@ export async function chatTurn(messages, userText, { onEvent = () => {} } = {}) 
         json: true,
         temperature: 0.4,
         maxTokens: 4000,
+        signal,
         onToken: (_d, full) => { const say = saySoFar(full); if (say != null) onEvent({ type: 'token', say }); },
       });
       json = r.json; usage = r.usage;
-    } catch {
+    } catch (e) {
+      if (signal?.aborted || e.name === 'AbortError') break; // user pressed Stop
       const r = await llm({ system: systemPrompt(), messages: messages.slice(-MAX_HISTORY), json: false, temperature: 0.4, maxTokens: 4000 });
       json = { say: (r.text || '').trim() || 'Tive um problema para gerar a resposta. Pode reformular?', run: [] };
       usage = r.usage;

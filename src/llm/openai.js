@@ -16,7 +16,7 @@ const noStreamOpts = new Set();    // servers that rejected stream_options
 const isReasoning = (model) => /^(o[0-9]|gpt-5)/i.test(model);
 const usageOf = (u) => (u ? { input: u.prompt_tokens || 0, output: u.completion_tokens || 0 } : null);
 
-export async function chat({ apiKey, model, baseUrl, system, messages, temperature, maxTokens, onToken }) {
+export async function chat({ apiKey, model, baseUrl, system, messages, temperature, maxTokens, onToken, signal }) {
   if (!apiKey) throw new Error('Missing API key for OpenAI-compatible provider. Run: afax config set providers.openai.apiKey <key>  (or export OPENAI_API_KEY)');
   const msgs = [];
   if (system) msgs.push({ role: 'system', content: system });
@@ -67,6 +67,7 @@ export async function chat({ apiKey, model, baseUrl, system, messages, temperatu
           stream: true,
           ...(noStreamOpts.has(model) ? {} : { stream_options: { include_usage: true } }),
         },
+        signal,
         onLine: (line) => {
           if (!line.startsWith('data:')) return;
           const d = line.slice(5).trim();

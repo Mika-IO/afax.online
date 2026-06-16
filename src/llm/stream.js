@@ -1,9 +1,16 @@
 // Streaming POST for LLM token-by-token responses. Native fetch + body reader,
 // zero deps. Calls onLine(line) for every newline-delimited line (SSE `data:`
 // frames or NDJSON). No retry here — streams are stateful; callers retry whole.
-export async function streamPost(url, { headers = {}, json, onLine, timeout = 120000 } = {}) {
+export async function streamPost(url, { headers = {}, json, onLine, timeout = 120000, signal } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeout);
+  // Let an external signal (e.g. the user pressing Stop) abort the stream too.
+  const onAbort = () => ctrl.abort();
+  if (signal) {
+    if (signal.aborted) ctrl.abort();
+    else signal.addEventListener('abort', onAbort);
+  }
+  const cleanup = () => { clearTimeout(timer); if (signal) signal.removeEventListener('abort', onAbort); };
   let res;
   try {
     res = await fetch(url, {
@@ -13,7 +20,7 @@ export async function streamPost(url, { headers = {}, json, onLine, timeout = 12
       signal: ctrl.signal,
     });
   } catch (e) {
-    clearTimeout(timer);
+    cleanup();
     throw e;
   }
   if (!res.ok || !res.body) {
@@ -39,6 +46,6 @@ export async function streamPost(url, { headers = {}, json, onLine, timeout = 12
     }
     if (buf.trim()) onLine(buf.trim());
   } finally {
-    clearTimeout(timer);
+    cleanup();
   }
 }

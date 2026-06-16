@@ -205,6 +205,7 @@ export const PAGE = `<!doctype html>
         <textarea id="msg" rows="1" placeholder="Message your company…  (Enter to send, Shift+Enter for newline)" autocomplete="off"></textarea>
         <button class="btn icon" id="resetBtn" title="Reset conversation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
         <button class="btn act send" id="sendBtn" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></button>
+        <button class="btn send" id="stopBtn" title="Stop" hidden style="background:#2a2d35;color:var(--ink)"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
       </div>
     </section>
 
@@ -220,14 +221,7 @@ export const PAGE = `<!doctype html>
     </section>
 
     <section id="integrations" hidden>
-      <div class="head"><h2>Integrations</h2><p>Paste any key — I detect the service, save it and test it. Or fill a card. Secrets stay on the server.</p></div>
-      <div class="card">
-        <h3>Smart connect</h3>
-        <div class="row">
-          <input id="pasteIn" type="password" placeholder="Paste an API key / token / webhook URL…" style="margin-top:0">
-          <button class="btn act" id="pasteBtn">Detect &amp; connect</button>
-        </div>
-      </div>
+      <div class="head"><h2>Integrations</h2><p>Connect a service with one click, or fill a card. Secrets stay on the server.</p></div>
       <div id="cards"></div>
       <details style="margin-top:6px">
         <summary class="muted" style="cursor:pointer;padding:8px 2px">Advanced — every setting</summary>
@@ -418,7 +412,9 @@ function addBubble(role, text){
 }
 function nearBottom(){ var l = el("log"); return (l.scrollHeight - l.scrollTop - l.clientHeight) < 90; }
 function scrollLog(force){ var l = el("log"); if(force || nearBottom()) l.scrollTop = l.scrollHeight; }
-function setBusy(b){ el("sendBtn").disabled = b; if(!b){ el("msg").focus(); } }
+var currentAbort = null;
+function setBusy(b){ el("sendBtn").hidden = b; el("stopBtn").hidden = !b; if(!b){ el("msg").focus(); } }
+el("stopBtn").onclick = function(){ if(currentAbort) currentAbort.abort(); };
 function autosize(){ var m = el("msg"); m.style.height = "auto"; m.style.height = Math.min(m.scrollHeight, 160) + "px"; }
 
 // rAF-batched streaming render — avoids reflow on every token
@@ -437,7 +433,8 @@ function send(){
   bubble.classList.add("thinking");
   var sayEl = bubble.querySelector(".say");
   var stepsEl = bubble.querySelector(".steps");
-  api("/api/chat", { method:"POST", body: JSON.stringify({ text: text }) }).then(function(res){
+  currentAbort = new AbortController();
+  api("/api/chat", { method:"POST", body: JSON.stringify({ text: text }), signal: currentAbort.signal }).then(function(res){
     var reader = res.body.getReader();
     var dec = new TextDecoder();
     var buf = "";
@@ -456,7 +453,7 @@ function send(){
       });
     }
     return pump();
-  }).catch(function(e){ finish(bubble, sayEl); sayEl.textContent = "Connection error: " + e.message; });
+  }).catch(function(e){ finish(bubble, sayEl); if(e.name !== "AbortError"){ sayEl.textContent = "Connection error: " + e.message; } });
 }
 function finish(bubble, sayEl){ if(_raf){ cancelAnimationFrame(_raf); _raf = 0; } bubble.classList.remove("thinking"); setBusy(false); loadState(); }
 
@@ -539,7 +536,7 @@ el("saveCfg").onclick = function(){
   Promise.all(changes.map(function(ch){ return api("/api/config", { method:"POST", body: JSON.stringify(ch) }); })).then(function(){ toast("Saved " + changes.length + " field(s)"); loadState(); loadConfig(); });
 };
 
-// ---- integrations: smart connect + per-service cards ----
+// ---- integrations: one-click OAuth + per-service cards ----
 function loadIntegrations(){
   j("/api/integrations").then(function(d){
     el("cards").innerHTML = (d.integrations || []).map(function(it){
@@ -578,16 +575,6 @@ function testInteg(key){
   toast("Testing " + key + "…");
   j("/api/integrations/test", { method:"POST", body: JSON.stringify({ key: key }) }).then(function(r){ toast((r.ok ? "\\u2713 " : "\\u2717 ") + key + " — " + (r.msg || ""), !r.ok); });
 }
-el("pasteBtn").onclick = function(){
-  var v = el("pasteIn").value.trim(); if(!v) return;
-  j("/api/integrations/paste", { method:"POST", body: JSON.stringify({ secret: v }) }).then(function(r){
-    if(!r.ok){ toast(r.error || "Not recognized", true); return; }
-    el("pasteIn").value = "";
-    toast(r.label + (r.test && r.test.ok ? " connected \\u2713" : " saved — test: " + ((r.test && r.test.msg) || "?")));
-    loadIntegrations(); loadState();
-  });
-};
-
 // ---- database ----
 var CUR = null, PAGE = 0, PSIZE = 25, QUERY = "", TOTAL = 0;
 function loadCollections(){

@@ -2,7 +2,7 @@
 import { http } from '../integrations/http.js';
 import { streamPost } from './stream.js';
 
-export async function chat({ model, baseUrl, system, messages, temperature, maxTokens, onToken }) {
+export async function chat({ model, baseUrl, system, messages, temperature, maxTokens, onToken, signal }) {
   const msgs = [];
   if (system) msgs.push({ role: 'system', content: system });
   for (const m of messages) msgs.push({ role: m.role, content: m.content });
@@ -15,6 +15,7 @@ export async function chat({ model, baseUrl, system, messages, temperature, maxT
     try {
       await streamPost(`${baseUrl}/api/chat`, {
         json: { model, messages: msgs, stream: true, options: { temperature, num_predict: maxTokens } },
+        signal,
         onLine: (line) => {
           try {
             const j = JSON.parse(line);

@@ -2,7 +2,7 @@
 import { http } from '../integrations/http.js';
 import { streamPost } from './stream.js';
 
-export async function chat({ apiKey, model, baseUrl, system, messages, temperature, maxTokens, onToken }) {
+export async function chat({ apiKey, model, baseUrl, system, messages, temperature, maxTokens, onToken, signal }) {
   if (!apiKey) throw new Error('Missing Anthropic API key. Run: afax config set providers.anthropic.apiKey <key>  (or export ANTHROPIC_API_KEY)');
   const body = {
     model,
@@ -19,6 +19,7 @@ export async function chat({ apiKey, model, baseUrl, system, messages, temperatu
     await streamPost(`${baseUrl}/v1/messages`, {
       headers,
       json: { ...body, stream: true },
+      signal,
       onLine: (line) => {
         if (!line.startsWith('data:')) return;
         try {
