@@ -6,7 +6,7 @@
 builder = "dockerfile"
 
 [deploy]
-startCommand = "node bin/afax.js web"
+startCommand = "node bin/afax.js cloud"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"

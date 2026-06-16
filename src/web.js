@@ -60,9 +60,10 @@ export async function cmd(args) {
     warn('AFAX_WEB_TOKEN is short — use at least 24 random chars for a public deploy.');
   }
   const token = envToken || randomBytes(24).toString('hex');
-  const ctx = { token, messages: [] };
+  const cloud = !!args.cloud;
+  const ctx = { token, messages: [], cloud };
 
-  header('🖥️  AFAX Web', isPublic ? 'Cloud control panel' : 'Local control panel');
+  header(cloud ? '☁️  AFAX Cloud' : '🖥️  AFAX Web', cloud ? 'Always-on company — panel · inbound · autonomy' : (isPublic ? 'Cloud control panel' : 'Local control panel'));
 
   const server = createServer((req, res) => {
     handle(req, res, ctx).catch((e) => {
@@ -81,6 +82,7 @@ export async function cmd(args) {
       log('  ' + c.cyan(`http://${host}:${port}/?token=${token}`));
     }
     if (!hasLLM()) warn('No LLM configured — chat is disabled until you set a provider key in Integrations.');
+    if (cloud) startHeartbeat();
   });
   await new Promise(() => {}); // keep alive
 }
@@ -126,10 +128,35 @@ const SECURITY_HEADERS = {
     "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
 };
 
+// In cloud mode, the company keeps producing on its own: periodically fire any
+// due scheduled work (the autonomous heartbeat) so the business runs even while
+// the user's laptop is off. Interval in minutes via AFAX_CLOUD_INTERVAL.
+function startHeartbeat() {
+  const minutes = Math.max(1, Number(process.env.AFAX_CLOUD_INTERVAL) || 10);
+  info(`Autonomy heartbeat: running due scheduled work every ${minutes} min.`);
+  const tick = async () => {
+    try {
+      const { dispatch } = await import('./cli.js');
+      await dispatch(['schedule', 'run']);
+    } catch (e) {
+      warn(`Heartbeat: ${e.message}`);
+    }
+  };
+  setInterval(tick, minutes * 60000);
+}
+
 async function handle(req, res, ctx) {
-  for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
   const url = new URL(req.url, 'http://localhost');
   const path = url.pathname;
+
+  // Cloud mode also serves the inbound side (webhooks, asset hosting) on the
+  // same port — Telegram/WhatsApp/Stripe/email + generated-image hosting.
+  if (ctx.cloud && /^\/(webhook|inbound|assets)\b/.test(path)) {
+    const { handle: inbound } = await import('./server.js');
+    return inbound(req, res);
+  }
+
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
 
   // Unauthenticated liveness for platform health checks.
   if (req.method === 'GET' && path === '/healthz') return send(res, 200, { ok: true });

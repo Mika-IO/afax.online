@@ -19,4 +19,5 @@ VOLUME ["/data"]
 EXPOSE 8788
 
 # Set AFAX_WEB_TOKEN (a long random secret) and your provider key as env vars.
-CMD ["node", "bin/afax.js", "web"]
+# `cloud` = the always-on company: web panel + inbound webhooks + autonomy heartbeat.
+CMD ["node", "bin/afax.js", "cloud"]

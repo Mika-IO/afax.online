@@ -1,9 +1,22 @@
 # Deploy to the cloud (Railway)
 
-`afax web` is the same control panel you run locally, made deployable. Push it to
-Railway (or any container host) and you get a hosted AFAX with a login-gated web
-UI — chat, integrations, database and usage — reachable from anywhere, running
-24/7. Read [Security](#/security) before exposing it.
+This is the heart of AFAX: a **cloud instance of your company that keeps
+producing even when your laptop is off**. Deploy once and you get an always-on
+business you can talk to from anywhere — like Polsia, but open-source, custom and
+efficient.
+
+`afax cloud` runs three things in one process, on one port:
+
+- **The control panel** — chat with your company, manage integrations, the
+  database and usage (login-gated).
+- **The inbound side** — webhooks (Telegram/WhatsApp/Stripe/email), AI
+  auto-reply and asset hosting, so leads and payments land 24/7.
+- **The autonomy heartbeat** — periodically runs due scheduled work, so the
+  agents keep prospecting, posting and following up on their own.
+
+(`afax web` is the panel alone; `afax serve` is the inbound side alone. `afax
+cloud` is both plus autonomy — deploy this one.) Read [Security](#/security)
+before exposing it.
 
 ## What you need
 
@@ -31,9 +44,11 @@ config.
    | `AFAX_WEB_TOKEN` | your `openssl rand -hex 24` secret — required to log in |
    | `OPENAI_API_KEY` | (or `ANTHROPIC_API_KEY`) your LLM key |
    | `AFAX_PROVIDER` | `openai` / `anthropic` / `ollama` (optional) |
+   | `AFAX_CLOUD_INTERVAL` | autonomy heartbeat in minutes (default 10, optional) |
 
-   Railway injects `PORT` itself; `afax web` reads it and binds `0.0.0.0`
-   automatically. You do **not** set `PORT`.
+   Railway injects `PORT` itself; `afax cloud` reads it and binds `0.0.0.0`
+   automatically. You do **not** set `PORT`. The image's start command is already
+   `afax cloud`.
 
 4. **Deploy.** The health check at `/healthz` turns green when it's up. Open the
    generated `*.up.railway.app` URL, enter your `AFAX_WEB_TOKEN`, and you're in.
@@ -51,6 +66,20 @@ The fresh instance has an empty workspace. From the panel:
 
 Outbound stays **dry-run** until you flip `live` on in Integrations — keep it off
 until you're ready to actually send.
+
+## Make it autonomous
+
+The heartbeat fires **due scheduled work** on its interval, so give the company a
+routine to run. In Chat (or CLI) set schedules once:
+
+```
+schedule "every day at 09:00" --do "run --execute"
+schedule "every day at 18:00" --do "marketing publish --platform telegram --topic 'daily update' --live"
+```
+
+Now the cloud instance prospects, posts and follows up on its own — you just drop
+in to chat, review and steer. Webhooks (Telegram/WhatsApp/Stripe/email) hit the
+same URL, so inbound leads and payments are handled 24/7 too.
 
 ## Other hosts
 

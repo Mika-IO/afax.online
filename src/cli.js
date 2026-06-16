@@ -80,6 +80,10 @@ export async function dispatch(argv) {
       const { cmd: web } = await import('./web.js');
       return web(args);
     }
+    case 'cloud': {
+      const { cmd: web } = await import('./web.js');
+      return web({ ...args, cloud: true });
+    }
     case 'browser': {
       const url = args._[0];
       if (!url) return warn('Usage: afax browser <url>   (opens a headless browser and prints the page)');
@@ -307,8 +311,9 @@ function help() {
   row('run [--execute]', 'Orchestrator plans & acts');
   row('task add "<title>" | task list', 'Shared work board (todo → doing → done)');
   row('schedule "<when>" --do "<cmd>"', 'NL recurring tasks (cron-ready)');
-  row('web [--port 8788] [--host H]', 'Web panel (chat/integrations/db) — deployable, token-auth');
-  row('serve [--port 8787]', 'Inbound: webhooks, auto-reply, asset hosting');
+  row('cloud [--port 8788]', 'Always-on company: panel + inbound + autonomy (deploy this)');
+  row('web [--port 8788] [--host H]', 'Web panel only (chat/integrations/db), token-auth');
+  row('serve [--port 8787]', 'Inbound only: webhooks, auto-reply, asset hosting');
   row('inbox', 'Inbound messages received by the server');
   row('memory', 'What the agents remember');
   row('usage [--recent]', 'LLM token spend + budget for this workspace');

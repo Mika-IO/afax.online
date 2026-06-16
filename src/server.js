@@ -59,7 +59,7 @@ export async function cmd(args) {
   await new Promise(() => {});
 }
 
-async function handle(req, res) {
+export async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const path = url.pathname;
 
