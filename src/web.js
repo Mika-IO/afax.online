@@ -27,8 +27,11 @@ import { load, save, activeProvider, hasLLM } from './config.js';
 import { read, add, update, remove, COLLECTIONS, AFAX_HOME } from './store.js';
 import { snapshot } from './orchestrator.js';
 import { monthTotals, allTotals, budgetState } from './usage.js';
-import { PAGE } from './web.page.js';
 import { c, header, ok, info, warn, err, log } from './logger.js';
+
+// The control-panel SPA — kept as a plain .html so its client script can use
+// template literals freely (read once at startup).
+const PAGE = readFileSync(new URL('./web.page.html', import.meta.url), 'utf8');
 
 const SECRET_RE = /(key|secret|token|pass)$/i;
 const MASK = '__AFAX_SECRET_SET__';
@@ -290,7 +293,20 @@ async function handle(req, res, ctx) {
   }
 
   if (path === '/api/usage') {
-    return send(res, 200, { month: monthTotals(), all: allTotals(), budget: budgetState(), recent: read('usage', []).slice(-25).reverse() });
+    // 14-day buckets of call counts, oldest→newest, for the chart.
+    const today = new Date();
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      days.push({ day: d.toISOString().slice(0, 10), count: 0 });
+    }
+    const idx = Object.fromEntries(days.map((b, i) => [b.day, i]));
+    for (const r of read('usage', [])) {
+      const k = (r.createdAt || '').slice(0, 10);
+      if (k in idx) days[idx[k]].count++;
+    }
+    return send(res, 200, { month: monthTotals(), all: allTotals(), budget: budgetState(), recent: read('usage', []).slice(-25).reverse(), daily: days });
   }
 
   // ---- generated content: list with previewable files ----

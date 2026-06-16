@@ -8,6 +8,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.4.0] — 2026-06-15
 
 ### Added
+- **Redesigned control panel.** The web app was rebuilt to the product's
+  end-state design — a warm dark theme, command-card chat, a Tasks board with
+  automations + live activity, a Content gallery, grouped Integrations, and a
+  Database with Leads (search + pagination), a Pipeline kanban and Contacts,
+  plus a Usage view with per-day and per-model charts. Wired to the real APIs
+  (no mock data); served as a static `src/web.page.html`.
 - **See your generated assets.** The CLI now prints a clickable link to the
   output folder and each file after `content carousel|meme|poster|reel|image`.
   The web panel gets a **Content** tab that previews everything inline — image
