@@ -206,6 +206,18 @@
     .chatwrap{padding:0 14px 130px}
   }
   .tablecard{padding:0;overflow:hidden}
+  .chatctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .chatctl .appr{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);font-weight:600;background:var(--bg-2);border:1px solid var(--line-2);padding:7px 11px;border-radius:9px;cursor:pointer}
+  .chatctl .appr input{accent-color:var(--accent);width:15px;height:15px}
+  .histpanel{position:absolute;top:84px;right:40px;z-index:40;width:340px;max-height:60vh;overflow-y:auto;background:var(--bg-2);border:1px solid var(--line-2);border-radius:14px;box-shadow:0 30px 80px -30px #000;padding:8px}
+  .histpanel .hrow{display:flex;align-items:center;gap:8px;padding:10px 11px;border-radius:9px;cursor:pointer}
+  .histpanel .hrow:hover{background:var(--bg-3)}
+  .histpanel .hrow .ht{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+  .histpanel .hrow .hm{font:500 11px/1 var(--mono);color:var(--ink-3);flex:none}
+  .histpanel .hrow .hx{flex:none;color:var(--ink-3);border:none;background:none;font-size:14px;padding:2px 6px}
+  .histpanel .hrow .hx:hover{color:var(--rose)}
+  .histpanel .hempty{padding:16px;color:var(--ink-3);font-size:13px;text-align:center}
+  .cmd.denied{border-color:var(--amber)}.cmd.denied .ico{background:rgba(255,193,77,.13);color:var(--amber)}
 </style>
 </head>
 <body>
@@ -235,7 +247,14 @@
     </nav>
 
     <section class="view on" id="v-chat">
-      <div class="head"><div><h1>Chat</h1><p>Talk to your company in natural language — I run the commands.</p></div><div class="pulse" id="pulse"></div></div>
+      <div class="head"><div><h1>Chat</h1><p>Talk to your company in natural language — I run the commands.</p></div>
+        <div class="chatctl">
+          <label class="appr" title="Allow AFAX to write files and send live messages without asking each time"><input type="checkbox" id="autoApprove"> Auto-approve</label>
+          <button class="btn" id="histBtn">History</button>
+          <button class="btn pri" id="newChatBtn">New chat</button>
+        </div>
+      </div>
+      <div class="histpanel" id="histPanel" hidden></div>
       <div class="chatwrap" id="chatwrap">
         <div class="chips" id="chips">
           <button class="chip">how are we doing?</button>
@@ -272,7 +291,7 @@
     </section>
 
     <section class="view" id="v-integrations">
-      <div class="head"><div><h1>Integrations</h1><p>Connect with one click, or fill a card. Secrets stay on the server.</p></div></div>
+      <div class="head"><div><h1>Integrations</h1><p>Connect with one click, or fill a card. Secrets stay on the server.</p></div><button class="btn" id="testAllBtn">Test all connected</button></div>
       <div class="body-pad" id="intgWrap"></div>
     </section>
 
@@ -308,6 +327,8 @@
           <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b>Calls per day</b><span class="muted" style="font:500 12px/1 var(--mono)">last 14 days</span></div><div class="bars" id="bars"></div></div>
           <div class="card"><b>Spend by model</b><div style="margin-top:18px" id="agbars"></div></div>
         </div>
+        <div class="sec-title">Interaction history</div>
+        <div class="card tablecard"><div id="usageHist"></div></div>
       </div>
     </section>
   </main>
@@ -378,7 +399,7 @@ var thread=el("thread"), ta=el("ta"), currentAbort=null;
 function scroll(){ var w=el("chatwrap"); w.scrollTop = w.scrollHeight; }
 function welcome(){ thread.innerHTML = '<div class="msg afx"><div class="av afx">A</div><div class="bubble"><div class="who">AFAX</div><p>Hey. '+esc(STATE.business.name||STATE.workspace)+' is on '+(STATE.live?"<b>live</b>":"<b>dry-run</b>")+'. Tell me what to do, or tap a suggestion.</p></div></div>'; }
 function userMsg(t){ var d=document.createElement("div"); d.className="msg you"; d.innerHTML='<div class="av you">YOU</div><div class="bubble"><div class="who">You</div><div class="body"></div></div>'; d.querySelector(".body").textContent=t; thread.appendChild(d); scroll(); }
-function cmdCard(cmd,out){ var d=document.createElement("details"); d.className="cmd"; d.open=true; d.innerHTML='<summary><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div><span class="name"></span><span class="arg"></span></summary><div class="out"></div>'; d.querySelector(".name").textContent=cmd.split(" ")[0]; d.querySelector(".arg").textContent=cmd.split(" ").slice(1).join(" "); d.querySelector(".out").textContent=out||""; return d; }
+function cmdCard(cmd,out,denied){ var d=document.createElement("details"); d.className="cmd"+(denied?" denied":""); d.open=true; d.innerHTML='<summary><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div><span class="name"></span><span class="arg"></span></summary><div class="out"></div>'; d.querySelector(".name").textContent=cmd.split(" ")[0]; d.querySelector(".arg").textContent=cmd.split(" ").slice(1).join(" "); d.querySelector(".out").textContent=out||""; return d; }
 function setBusy(b){ el("send").hidden=b; el("stop").hidden=!b; if(!b) ta.focus(); }
 function send(text){
   text=(text||ta.value).trim(); if(!text) return; ta.value=""; ta.style.height="auto"; setBusy(true);
@@ -401,12 +422,42 @@ function send(text){
 function onEv(ev,sayEl,stepsEl,meterEl){
   if(ev.type==="token"){ sayEl.textContent=ev.say; scroll(); }
   else if(ev.type==="say"){ if(ev.text) sayEl.innerHTML=mdfmt(ev.text); if(ev.usage){ var t=(ev.usage.input||0)+(ev.usage.output||0); meterEl.textContent="· "+tok(t)+" tokens"; } }
-  else if(ev.type==="command"){ stepsEl.appendChild(cmdCard(ev.cmd, ev.out||"")); scroll(); }
+  else if(ev.type==="command"){ stepsEl.appendChild(cmdCard(ev.cmd, ev.out||"", ev.denied)); scroll(); }
   else if(ev.type==="error"){ sayEl.textContent="⚠ "+ev.message; }
 }
 el("send").onclick=function(){ send(); };
 el("stop").onclick=function(){ if(currentAbort) currentAbort.abort(); };
 el("resetBtn").onclick=function(){ api("/api/chat/reset",{method:"POST"}).then(function(){ welcome(); }); };
+
+/* auto-approve + conversation history */
+el("autoApprove").onchange=function(){ api("/api/chat/autoapprove",{method:"POST",body:JSON.stringify({on:el("autoApprove").checked})}).then(function(){ toast(el("autoApprove").checked?"Auto-approve ON — files & live sends won't ask":"Auto-approve off"); }); };
+el("newChatBtn").onclick=function(){ api("/api/chat/reset",{method:"POST"}).then(function(){ welcome(); el("histPanel").hidden=true; }); };
+el("histBtn").onclick=function(){ var p=el("histPanel"); if(!p.hidden){ p.hidden=true; return; } loadHistory(); p.hidden=false; };
+document.addEventListener("click",function(e){ if(!el("histPanel").hidden && !e.target.closest("#histPanel") && e.target!==el("histBtn")) el("histPanel").hidden=true; });
+function loadHistory(){
+  j("/api/conversations").then(function(d){
+    var rows=d.conversations||[];
+    if(!rows.length){ el("histPanel").innerHTML='<div class="hempty">No past conversations yet.</div>'; return; }
+    el("histPanel").innerHTML=rows.map(function(cv){ return '<div class="hrow" data-open="'+cv.id+'"><span class="ht">'+esc(cv.title)+'</span><span class="hm">'+cv.turns+'·'+esc((cv.updatedAt||"").slice(5,10))+'</span><button class="hx" data-del="'+cv.id+'" title="Delete">✕</button></div>'; }).join("");
+    el("histPanel").querySelectorAll("[data-open]").forEach(function(r){ r.onclick=function(e){ if(e.target.closest("[data-del]")) return; openConversation(r.dataset.open); }; });
+    el("histPanel").querySelectorAll("[data-del]").forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); api("/api/conversations/"+b.dataset.del,{method:"DELETE"}).then(loadHistory); }; });
+  });
+}
+function renderStored(messages){
+  thread.innerHTML="";
+  (messages||[]).forEach(function(m){
+    if(m.role==="user"){ if(/\nContinue: more commands/.test(m.content)) return; userMsg(m.content); return; }
+    var parsed=null; try{ parsed=JSON.parse(m.content); }catch(e){}
+    if(!parsed||parsed.say===undefined) return;
+    var shell=document.createElement("div"); shell.className="msg afx"; shell.innerHTML='<div class="av afx">A</div><div class="bubble"><div class="who">AFAX</div><div class="say"></div><div class="steps"></div></div>'; thread.appendChild(shell);
+    if(parsed.say) shell.querySelector(".say").innerHTML=mdfmt(parsed.say);
+    (parsed.run||[]).forEach(function(cmd){ shell.querySelector(".steps").appendChild(cmdCard(cmd,"")); });
+  });
+  scroll();
+}
+function openConversation(id){
+  j("/api/conversations/"+id).then(function(d){ renderStored(d.messages); el("histPanel").hidden=true; setView("chat"); });
+}
 ta.addEventListener("keydown",function(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } });
 ta.addEventListener("input",function(){ ta.style.height="auto"; ta.style.height=Math.min(ta.scrollHeight,120)+"px"; });
 el("chips").addEventListener("click",function(e){ var b=e.target.closest(".chip"); if(b) send(b.textContent); });
@@ -473,6 +524,7 @@ function loadIntegrations(){
     document.querySelectorAll("#intgWrap [data-test]").forEach(function(b){ b.onclick=function(){ toast("Testing…"); j("/api/integrations/test",{method:"POST",body:JSON.stringify({key:b.dataset.test})}).then(function(r){ toast((r.ok?"✓ ":"✗ ")+(r.msg||"")); }); }; });
   });
 }
+el("testAllBtn").onclick=function(){ var b=el("testAllBtn"); b.disabled=true; b.textContent="Testing…"; j("/api/integrations/testall",{method:"POST"}).then(function(d){ b.disabled=false; b.textContent="Test all connected"; var r=d.results||[]; if(!r.length){ toast("Nothing connected to test."); return; } var ok=r.filter(function(x){return x.ok;}).length; toast(ok+"/"+r.length+" working: "+r.map(function(x){ return (x.ok?"✓":"✗")+x.label; }).join(", ")); }); };
 
 /* database — generic collection table + pipeline kanban */
 var dbColl="leads", dbPage=0, dbQ="";
@@ -526,12 +578,17 @@ function loadUsage(){
     var arr=Object.keys(bym).map(function(k){ return [k,bym[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
     var mx=Math.max(1,arr.length?arr[0][1]:1);
     el("agbars").innerHTML=arr.length?arr.map(function(a){ return '<div class="barrow"><div class="nm">'+esc(a[0])+'</div><div class="track"><div class="f" style="width:'+Math.round(a[1]/mx*100)+'%"></div></div><div class="vv">'+tok(a[1])+'</div></div>'; }).join(""):'<p class="muted">No usage yet.</p>';
+    var rec=u.recent||[];
+    el("usageHist").innerHTML = rec.length
+      ? '<table><thead><tr><th>When</th><th>Provider</th><th>Model</th><th>In</th><th>Out</th><th>Cost</th></tr></thead><tbody>'+rec.map(function(r){ return '<tr><td>'+esc((r.createdAt||"").slice(0,16).replace("T"," "))+'</td><td>'+esc(r.provider||"")+'</td><td>'+esc(r.model||"")+'</td><td>'+tok(r.input)+'</td><td>'+tok(r.output)+'</td><td>'+money(r.cost)+'</td></tr>'; }).join("")+'</tbody></table>'
+      : '<p class="muted" style="padding:16px">No calls recorded yet.</p>';
   });
 }
 
 /* boot */
 Promise.all([loadState(), loadWorkspaces()]).then(function(){
   welcome();
+  j("/api/conversations").then(function(d){ el("autoApprove").checked = !!d.autoApprove; }).catch(function(){});
   var v; try{ v=localStorage.getItem("afax_v"); }catch(e){}
   if(v && v!=="chat") setView(v); else el("ta").focus();
   loadTasks(); // for the badge

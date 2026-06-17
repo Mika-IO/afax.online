@@ -5,6 +5,53 @@ All notable changes to AFAX are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-06-17
+
+### Added
+- **Company output language.** A new `business.language` profile field makes the
+  whole company speak one language across every output — chat, `outreach`,
+  `email send`, content. It holds regardless of the incoming message's language
+  (a lead writing in English to a PT-BR company still gets PT-BR), unless the CEO
+  overrides. Resolution: explicit field → website-TLD guess → mirror the user.
+  `context ingest` auto-detects and fills it in. (`src/style.js`, wired into
+  `agents/base.js`, `chat.js`, `orchestrator.js`, `agents/context.js`, `init.js`)
+- **Anti-filler output style.** Every agent prompt now bans simulated-thinking
+  filler, preambles, sycophancy and padding to cut output tokens, latency and
+  cost — without suppressing genuine reasoning. (`src/style.js`)
+- **Files the agent can edit.** Chat gained write tools — `fs write`, `fs append`,
+  `fs mkdir`, `fs mv`, `fs rm` — on top of the existing read tools. Writes are
+  confined to the working-directory subtree. (`src/chat.js`)
+- **Claude-style permission gate.** Every file write and every `--live` send asks
+  first: an interactive `[y]es / [n]o / [a]ll` prompt in the terminal (with
+  "approve all" for the session), and an off-by-default **Auto-approve** switch in
+  the web panel chat header (`POST /api/chat/autoapprove`). `afax ask` denies
+  writes/sends unless `--yes`.
+- **Conversation history.** Chat sessions persist per workspace and survive
+  restarts. The web panel gets a **History** menu (open, delete) and a **New chat**
+  button. New module `src/conversations.js`; endpoints `GET /api/conversations`,
+  `GET|DELETE /api/conversations/:id`. (`conversations` is now a collection.)
+- **`afax email send`.** A direct, single-recipient email command
+  (`--to --subject --body [--live]`, plus `email status`) that validates the
+  address and uses it verbatim — so the chat agent stops repurposing `outreach`
+  and never drifts to the wrong recipient. (`src/agents/mailer.js`)
+- **Username + password login** for the web panel via `AFAX_WEB_USER` /
+  `AFAX_WEB_PASS` (or `--user` / `--pass`), alongside the existing token auth. A
+  public host now requires either. (`src/web.js`)
+- **`afax web --serve`** mounts the inbound webhooks on the panel's port without
+  the full `afax cloud` autonomy heartbeat.
+- **Usage interaction history.** The Usage view now lists recent LLM calls
+  (timestamp · provider · model · tokens · cost), and **Integrations** gained a
+  **Test all connected** button (`POST /api/integrations/testall`).
+
+### Fixed
+- **Stop now actually stops.** Pressing Stop in the web chat aborts between
+  commands instead of letting the model keep reasoning/executing in the
+  background. (`src/chat.js`)
+- **Clearer Resend errors.** A 422 from Resend is rewritten to name the usual
+  cause (unverified sending domain, or a test-mode account that can only mail its
+  own verified address). Recipient addresses are validated before any send.
+  (`src/integrations/email.js`)
+
 ## [0.4.0] — 2026-06-15
 
 ### Added

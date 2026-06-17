@@ -53,8 +53,9 @@ async function ingest(url, args) {
         {
           role: 'user',
           content:
-            `From this website content, return JSON: {"name","offer","icp","tone","website","keyFacts":["..."],"valueProps":["..."]}\n` +
-            `- offer: what they sell, one line\n- icp: ideal customer\n- tone: brand voice in 3-4 words\n\n${corpus}`,
+            `From this website content, return JSON: {"name","offer","icp","tone","website","language","keyFacts":["..."],"valueProps":["..."]}\n` +
+            `- offer: what they sell, one line\n- icp: ideal customer\n- tone: brand voice in 3-4 words\n` +
+            `- language: the main language of the site as a readable label, e.g. "Portuguese (Brazil)", "English", "Spanish"\n\n${corpus}`,
         },
       ],
       json: true,
@@ -69,6 +70,8 @@ async function ingest(url, args) {
   cfg.business.icp = profile.icp || cfg.business.icp;
   cfg.business.tone = profile.tone || cfg.business.tone;
   cfg.business.website = url;
+  // Only auto-fill the target language if the user hasn't set one explicitly.
+  if (!cfg.business.language && profile.language) cfg.business.language = profile.language;
   save(cfg);
 
   for (const f of [...(profile.keyFacts || []), ...(profile.valueProps || [])]) {
@@ -81,6 +84,7 @@ async function ingest(url, args) {
   log(`  ${c.bold('Offer: ')} ${profile.offer || '—'}`);
   log(`  ${c.bold('ICP:   ')} ${profile.icp || '—'}`);
   log(`  ${c.bold('Tone:  ')} ${profile.tone || '—'}`);
+  log(`  ${c.bold('Lang:  ')} ${cfg.business.language || c.dim('(auto)')}`);
   if (profile.valueProps?.length) {
     log('');
     log(`  ${c.dim('Value props:')}`);

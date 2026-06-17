@@ -62,7 +62,7 @@ export function remove(name, id) {
 export const COLLECTIONS = [
   'leads', 'contacts', 'crm_notes', 'deals', 'messages', 'posts',
   'campaigns', 'channels', 'content', 'flows', 'schedule',
-  'revenue', 'expenses', 'invoices', 'memory', 'inbox', 'usage', 'tasks',
+  'revenue', 'expenses', 'invoices', 'memory', 'inbox', 'usage', 'tasks', 'conversations',
 ];
 
 export function cuid() {

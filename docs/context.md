@@ -4,7 +4,7 @@ Context is what makes every agent sound like **your** company instead of a gener
 
 ## The business profile
 
-Five fields, injected into every agent's system prompt:
+Six fields, injected into every agent's system prompt:
 
 | Field | Example |
 | --- | --- |
@@ -13,6 +13,35 @@ Five fields, injected into every agent's system prompt:
 | `icp` | small dental clinics (2–10 chairs) in the US |
 | `tone` | direct, confident, helpful |
 | `website` | https://acme.example |
+| `language` | Portuguese (Brazil) — *blank = auto-detect* |
+
+### Output language
+
+`language` sets the **one language the company speaks in every output** — chat
+replies, `outreach`, `email send`, generated content and SEO articles. It holds
+regardless of the language a lead writes in: a prospect who emails in English
+still gets your configured language back, unless you (the CEO) explicitly ask for
+another language.
+
+Resolution order: the explicit `language` field → a guess from the website TLD
+(`.com.br` → Portuguese, `.fr` → French, …) → otherwise the agent simply mirrors
+the user (the previous behaviour). `context ingest` also fills it in from the
+detected site language when you haven't set one.
+
+```bash
+afax context set language "Portuguese (Brazil)"
+afax context set language ""        # back to auto-detect / mirror
+```
+
+### Response style (anti-filler)
+
+Every agent prompt also carries strict style rules that ban simulated-thinking
+filler ("hmm", "let me think"), preambles ("sure, here's…", "claro, com certeza"),
+sycophancy/apologies ("great question", "as an AI model") and padding ("it's worth
+noting that", "in conclusion"). This cuts output tokens, latency and API cost.
+Real reasoning is **not** suppressed — only text that *pretends* to think or wraps
+the answer in fluff. (Based on Bsharat et al. 2023, *Principled Instructions Are
+All You Need*.)
 
 Set it three ways:
 
@@ -28,7 +57,7 @@ The flagship command. AFAX:
 
 1. Fetches your homepage and strips it to readable text.
 2. Also tries `/about`, `/pricing` and `/product` for richer context.
-3. Sends up to 12 KB of corpus to your LLM and extracts a precise JSON profile: `name`, `offer`, `icp`, `tone`, plus `keyFacts[]` and `valueProps[]`.
+3. Sends up to 12 KB of corpus to your LLM and extracts a precise JSON profile: `name`, `offer`, `icp`, `tone`, `language`, plus `keyFacts[]` and `valueProps[]`.
 4. Saves the profile fields (never overwriting a name you set manually) and stores every fact and value prop in persistent memory.
 
 ```bash

@@ -79,12 +79,14 @@ the chat agent. **Fixed**: `config get` masks any `key/secret/token/pass` leaf
 
 The panel exposes keys, the database and money. Now:
 
-- Refuses to bind a **public** host without `AFAX_WEB_TOKEN`.
+- Refuses to bind a **public** host without an access token **or** username +
+  password (`AFAX_WEB_USER` / `AFAX_WEB_PASS`).
 - Token sent as an **HttpOnly, SameSite=Strict** cookie (set via the login form)
   or an `x-afax-token` header — **never in the URL**. The local one-time
   `?token=` convenience immediately sets the cookie and 302-redirects to a clean
   URL.
-- **Constant-time** token comparison; failed logins are throttled (~0.5s).
+- **Constant-time** comparison for the token *and* the username/password; failed
+  logins are throttled (~0.5s).
 - Security headers on every response: `Content-Security-Policy` (locks script/
   connect to `self`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: no-referrer`.
@@ -96,6 +98,13 @@ file the process user can — including other workspaces and the config file. On
 container this is limited to the container's filesystem, but still includes your
 keys on disk. **Accepted** for single-tenant self-host. For a future
 multi-tenant mode this must be jailed to `AFAX_HOME`.
+
+**Writes** (`fs write/append/mkdir/mv/rm`) are stricter than reads: they are
+**confined to the working-directory subtree** (paths that escape it are refused)
+**and** each one requires explicit approval — an interactive `[y]/[n]/[a]` prompt
+in the terminal, or the off-by-default **Auto-approve** switch in the web panel.
+Any `--live` send is gated the same way. So a prompt-injected model cannot
+silently overwrite files or fire real messages.
 
 ### 8 — CSRF (Low, mitigated)
 

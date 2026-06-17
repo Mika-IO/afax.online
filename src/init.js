@@ -42,6 +42,7 @@ export async function init() {
     cfg.business.icp = await ask('Ideal customer (ICP)', cfg.business.icp);
     cfg.business.tone = await ask('Brand tone', cfg.business.tone);
     cfg.business.website = await ask('Website', cfg.business.website);
+    cfg.business.language = await ask('Output language (blank = auto-detect from site)', cfg.business.language);
 
     log('');
     log(c.bold('  3) Autonomy'));

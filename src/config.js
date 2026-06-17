@@ -19,7 +19,7 @@ const GLOBAL_DEFAULTS = {
 };
 
 const WS_DEFAULTS = {
-  business: { name: '', icp: '', offer: '', tone: 'direct, confident, helpful', website: '' },
+  business: { name: '', icp: '', offer: '', tone: 'direct, confident, helpful', website: '', language: '' },
   integrations: {
     email: { driver: 'resend', from: '', apiKey: '', host: '', port: 465, user: '', pass: '' },
     meta: { accessToken: '', graphVersion: 'v21.0', pageId: '', igUserId: '', whatsappPhoneId: '', adAccountId: '' },

@@ -21,7 +21,7 @@ import * as context from './agents/context.js';
 import * as outreach from './agents/outreach.js';
 import * as deploy from './agents/deploy.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 
 // ---- arg parsing -----------------------------------------------------------
 export function parse(argv) {
@@ -134,6 +134,10 @@ export async function dispatch(argv) {
       return args._[0] === 'list' ? content.list() : content.cmd(args);
     case 'crm':
       return crm.cmd(args);
+    case 'email': {
+      const { cmd: mailer } = await import('./agents/mailer.js');
+      return mailer(args);
+    }
     case 'outreach':
       return args._[0] === 'preview' ? outreach.preview() : outreach.cmd(args);
     case 'deploy':
@@ -303,6 +307,7 @@ function help() {
   row('✍️  content image --prompt "<p>"', 'AI image generation');
   row('✍️  content carousel|meme|poster|reel --topic', 'Premium HTML→PNG/MP4 assets (motion reels)');
   row('🤝 crm contact add "<email>"', 'Manage contacts & history');
+  row('✉️  email send --to <addr> --body "..."', 'Send one email to a specific address [--live]');
   row('🤖 automation flow add|list|run', 'Wire agents into flows');
   row('📊 finance revenue|expense|report', 'Cash flow, MRR, CFO read-out');
   row('🚀 deploy --src ./dist [--live]', 'Ship to your VPS over SSH');

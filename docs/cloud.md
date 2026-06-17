@@ -14,9 +14,22 @@ efficient.
 - **The autonomy heartbeat** — periodically runs due scheduled work, so the
   agents keep prospecting, posting and following up on their own.
 
-(`afax web` is the panel alone; `afax serve` is the inbound side alone. `afax
-cloud` is both plus autonomy — deploy this one.) Read [Security](#/security)
-before exposing it.
+(`afax web` is the panel alone; `afax serve` is the inbound side alone; `afax web
+--serve` is the panel plus inbound on one port; `afax cloud` is all of that plus
+the autonomy heartbeat — deploy this one.) Read [Security](#/security) before
+exposing it.
+
+## Logging in
+
+Two ways to authenticate, both setting the same session cookie:
+
+- **Token** — set `AFAX_WEB_TOKEN` (a long random secret); paste it on the login
+  screen, or send it as the `x-afax-token` header for CLI/automation.
+- **Username + password** — set `AFAX_WEB_USER` and `AFAX_WEB_PASS` (or pass
+  `--user` / `--pass`). The login screen then shows username + password fields —
+  handier for a human than copying a long token.
+
+A public host requires at least one of these; AFAX refuses to bind otherwise.
 
 ## What you need
 

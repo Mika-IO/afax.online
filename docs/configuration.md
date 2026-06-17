@@ -91,6 +91,10 @@ AFAX_MODEL=gpt-4o-mini
 | `HUNTER_API_KEY` / `APOLLO_API_KEY` | Lead sourcing (auto-selects the driver) |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe payments + webhook verification |
 | `AFAX_PUBLIC_URL` | Public base URL of `afax serve` (asset hosting) |
+| `AFAX_WEB_TOKEN` | Shared access token for the web panel (`afax web` / `afax cloud`) |
+| `AFAX_WEB_USER` / `AFAX_WEB_PASS` | Optional username + password login for the web panel |
+| `AFAX_WEB_HOST` | Bind host for the panel (default `127.0.0.1`, or `0.0.0.0` when `PORT` is set) |
+| `AFAX_CLOUD_INTERVAL` | Minutes between autonomy heartbeats in cloud mode (default 10) |
 
 ## Key precedence
 

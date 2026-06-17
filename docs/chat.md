@@ -30,6 +30,31 @@ $ afax
 
 Every executed command is printed as a dim `⏺ afax …` line with its full output — nothing happens invisibly.
 
+## Files & permissions (Claude-style)
+
+The assistant can both **read and write** files in its working directory:
+
+| Tool | What it does |
+| --- | --- |
+| `fs ls` / `fs tree` / `fs read` / `fs find` | Inspect (read-only — runs freely) |
+| `fs write <path> --content "…"` | Create or overwrite a file |
+| `fs append <path> --content "…"` | Append to a file |
+| `fs mkdir <path>` | Create a directory |
+| `fs mv <src> <dst>` | Move / rename |
+| `fs rm <path>` | Delete a file or directory |
+
+Every **write** and every **live send** is gated by an approval prompt, just like
+Claude Code:
+
+- **In the terminal** you're asked `approve <cmd>? [y]es / [n]o / [a]ll` — pick `a`
+  to approve everything for the rest of the session.
+- **In the web panel** flip the **Auto-approve** switch in the Chat header to let it
+  write files and send live without asking; off by default.
+- `afax ask` (scriptable) denies writes/sends unless you pass `--yes`.
+
+Writes are confined to the current working directory subtree — the agent edits the
+project you pointed it at, never arbitrary system paths.
+
 ## One-shot mode: `afax ask`
 
 Scriptable single question, same engine:

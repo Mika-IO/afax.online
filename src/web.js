@@ -49,19 +49,31 @@ export async function cmd(args) {
   const isPublic = host !== '127.0.0.1' && host !== 'localhost' && host !== '::1';
 
   const envToken = process.env.AFAX_WEB_TOKEN || args.token;
-  if (isPublic && !envToken) {
-    err('Refusing to expose the panel on a public host without an auth token.');
+  // Optional username + password auth (env or flags). When set, the login screen
+  // accepts these credentials too — handy for a human signing in without copying
+  // a long token. The token path stays available for CLI/automation.
+  const user = process.env.AFAX_WEB_USER || args.user || '';
+  const pass = process.env.AFAX_WEB_PASS || args.pass || '';
+  const hasCreds = !!(user && pass);
+  if (isPublic && !envToken && !hasCreds) {
+    err('Refusing to expose the panel on a public host without authentication.');
     info('Set a strong secret first:  ' + c.cyan('export AFAX_WEB_TOKEN=$(openssl rand -hex 24)'));
+    info('…or set credentials:  ' + c.cyan('export AFAX_WEB_USER=you AFAX_WEB_PASS=<strong-password>'));
     info('Or bind locally:  ' + c.cyan('afax web --host 127.0.0.1'));
     process.exitCode = 1;
     return;
   }
-  if (isPublic && String(envToken).length < 16) {
+  if (isPublic && envToken && String(envToken).length < 16) {
     warn('AFAX_WEB_TOKEN is short — use at least 24 random chars for a public deploy.');
   }
+  if (isPublic && hasCreds && String(pass).length < 10) {
+    warn('AFAX_WEB_PASS is short — use a long, random password for a public deploy.');
+  }
+  // The session cookie always carries this token; credentials are just another
+  // way to obtain it at login.
   const token = envToken || randomBytes(24).toString('hex');
-  const cloud = !!args.cloud;
-  const ctx = { token, messages: [], cloud };
+  const cloud = !!args.cloud || !!args.serve; // `--serve` makes the panel also handle inbound webhooks
+  const ctx = { token, user, pass, hasCreds, messages: [], cloud, conversationId: null, autoApprove: false };
 
   header(cloud ? '☁️  AFAX Cloud' : '🖥️  AFAX Web', cloud ? 'Always-on company — panel · inbound · autonomy' : (isPublic ? 'Cloud control panel' : 'Local control panel'));
 
@@ -75,11 +87,18 @@ export async function cmd(args) {
     ok(`Running on ${c.bold(`http://${host}:${port}`)}`);
     log('');
     if (isPublic) {
-      info('Open the panel and log in with your ' + c.bold('AFAX_WEB_TOKEN') + '.');
+      info('Open the panel and log in with your ' + c.bold(hasCreds ? 'username + password' : 'AFAX_WEB_TOKEN') + '.');
       info('Put this behind HTTPS (Railway/Caddy/Cloudflare do TLS for you).');
-    } else if (!envToken) {
+    } else if (!envToken && !hasCreds) {
       info('One-time login link (token included, local only):');
       log('  ' + c.cyan(`http://${host}:${port}/?token=${token}`));
+    } else if (hasCreds) {
+      info('Log in with your configured ' + c.bold('username + password') + '.');
+    }
+    if (cloud) {
+      info('Cloud mode: inbound webhooks (' + c.cyan('/webhook/*') + ', ' + c.cyan('/inbound/email') + ') + asset hosting are served on this same port.');
+    } else {
+      info('Panel only. For inbound webhooks on the same process, run ' + c.cyan('afax cloud') + ' (or ' + c.cyan('afax web --serve') + ').');
     }
     if (!hasLLM()) warn('No LLM configured — chat is disabled until you set a provider key in Integrations.');
     if (cloud) startHeartbeat();
@@ -162,12 +181,16 @@ async function handle(req, res, ctx) {
   if (req.method === 'GET' && path === '/healthz') return send(res, 200, { ok: true });
   if (req.method === 'GET' && path === '/favicon.ico') return send(res, 204, {});
 
-  // Login / logout.
+  // Login / logout. Accept either the shared token, or username + password when
+  // credentials are configured. Both grant the same session cookie.
   if (path === '/api/login' && req.method === 'POST') {
-    const { token } = await json(req);
-    if (!constantEq(token, ctx.token)) {
+    const { token, username, password } = await json(req);
+    const tokenOk = token != null && constantEq(token, ctx.token);
+    const credsOk = ctx.hasCreds && username != null && password != null &&
+      constantEq(username, ctx.user) && constantEq(password, ctx.pass);
+    if (!tokenOk && !credsOk) {
       await sleep(400 + Math.random() * 200); // throttle brute force
-      return send(res, 401, { error: 'invalid token' });
+      return send(res, 401, { error: 'invalid credentials' });
     }
     res.setHeader('set-cookie', `${COOKIE}=${encodeURIComponent(ctx.token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800${secureFlag(req)}`);
     return send(res, 200, { ok: true });
@@ -188,7 +211,7 @@ async function handle(req, res, ctx) {
       return res.end();
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    return res.end(authed(req, ctx) ? PAGE : LOGIN);
+    return res.end(authed(req, ctx) ? PAGE : loginPage(ctx.hasCreds));
   }
 
   // OAuth callback is a cross-site redirect from the provider — it can't carry
@@ -250,14 +273,14 @@ async function handle(req, res, ctx) {
     const { createWorkspace, useWorkspace, summary } = await import('./workspace.js');
     createWorkspace(String(name).trim());
     useWorkspace(String(name).trim());
-    ctx.messages.length = 0; // fresh conversation for the new company
+    ctx.messages.length = 0; ctx.conversationId = null; // fresh conversation for the new company
     return send(res, 200, { ok: true, workspaces: summary() });
   }
   if (path === '/api/workspaces/use' && req.method === 'POST') {
     const { slug } = await json(req);
     const { useWorkspace, summary } = await import('./workspace.js');
     useWorkspace(String(slug || ''));
-    ctx.messages.length = 0;
+    ctx.messages.length = 0; ctx.conversationId = null;
     return send(res, 200, { ok: true, workspaces: summary() });
   }
 
@@ -298,6 +321,15 @@ async function handle(req, res, ctx) {
     const { runTest } = await import('./integrations/catalog.js');
     return send(res, 200, await runTest(key));
   }
+  // Live-test every connected integration at once — the "are my integrations
+  // actually working?" health check.
+  if (path === '/api/integrations/testall' && req.method === 'POST') {
+    const { CATALOG, isConnected, runTest } = await import('./integrations/catalog.js');
+    const cfg = load();
+    const connected = CATALOG.filter((e) => isConnected(e, cfg));
+    const results = await Promise.all(connected.map(async (e) => ({ key: e.key, label: e.label, ...(await runTest(e.key)) })));
+    return send(res, 200, { results });
+  }
 
   if (path === '/api/chat' && req.method === 'POST') {
     const { text } = await json(req);
@@ -305,19 +337,53 @@ async function handle(req, res, ctx) {
     if (!hasLLM()) return send(res, 400, { error: 'No LLM configured.' });
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
     const { chatTurn } = await import('./chat.js');
+    const { saveConversation, newId } = await import('./conversations.js');
+    if (!ctx.conversationId) ctx.conversationId = newId();
     // Stop generation when the client disconnects (the Stop button aborts the fetch).
     const ac = new AbortController();
     let finished = false;
     req.on('close', () => { if (!finished) ac.abort(); });
     const emit = (ev) => { try { res.write(`data: ${JSON.stringify(ev)}\n\n`); } catch {} };
-    try { await chatTurn(ctx.messages, text, { onEvent: emit, signal: ac.signal }); }
+    // File writes / live sends are allowed only when Auto-approve is on for this session.
+    const approve = async () => ctx.autoApprove === true;
+    try { await chatTurn(ctx.messages, text, { onEvent: emit, signal: ac.signal, approve }); }
     catch (e) { if (!ac.signal.aborted && e.name !== 'AbortError') emit({ type: 'error', message: e.message }); }
     finished = true;
+    try { saveConversation(ctx.conversationId, ctx.messages); } catch {}
     return res.end();
   }
   if (path === '/api/chat/reset' && req.method === 'POST') {
     ctx.messages.length = 0;
+    ctx.conversationId = null; // next message starts a fresh, separately-stored conversation
     return send(res, 200, { ok: true });
+  }
+  if (path === '/api/chat/autoapprove' && req.method === 'POST') {
+    const { on } = await json(req);
+    ctx.autoApprove = !!on;
+    return send(res, 200, { ok: true, autoApprove: ctx.autoApprove });
+  }
+
+  // ---- conversation history ----
+  if (path === '/api/conversations' && req.method === 'GET') {
+    const { listConversations } = await import('./conversations.js');
+    return send(res, 200, { conversations: listConversations(), current: ctx.conversationId, autoApprove: ctx.autoApprove });
+  }
+  const cv = path.match(/^\/api\/conversations\/([A-Za-z0-9]+)$/);
+  if (cv) {
+    const { getConversation, deleteConversation } = await import('./conversations.js');
+    if (req.method === 'GET') {
+      const conv = getConversation(cv[1]);
+      if (!conv) return send(res, 404, { error: 'not found' });
+      ctx.messages.length = 0;
+      for (const m of conv.messages) ctx.messages.push(m);
+      ctx.conversationId = conv.id;
+      return send(res, 200, { id: conv.id, title: conv.title, messages: conv.messages });
+    }
+    if (req.method === 'DELETE') {
+      const removed = deleteConversation(cv[1]);
+      if (ctx.conversationId === cv[1]) { ctx.messages.length = 0; ctx.conversationId = null; }
+      return send(res, 200, { removed });
+    }
   }
 
   if (path === '/api/usage') {
@@ -434,7 +500,24 @@ function send(res, code, obj) {
 }
 
 // ---- login page -------------------------------------------------------------
-const LOGIN = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+// Renders a token field, or username + password fields when credentials are
+// configured (AFAX_WEB_USER / AFAX_WEB_PASS).
+function loginPage(hasCreds) {
+  const fields = hasCreds
+    ? `<label for="u">Username</label>
+       <input id="u" type="text" placeholder="username" autocomplete="username" autofocus>
+       <label for="p" style="margin-top:14px">Password</label>
+       <input id="p" type="password" placeholder="password" autocomplete="current-password">`
+    : `<label for="t">Access token</label>
+       <input id="t" type="password" placeholder="AFAX_WEB_TOKEN" autocomplete="current-password" autofocus>`;
+  const submitScript = hasCreds
+    ? `body:JSON.stringify({username:document.getElementById("u").value,password:document.getElementById("p").value})`
+    : `body:JSON.stringify({token:document.getElementById("t").value})`;
+  const errMsg = hasCreds ? 'Invalid username or password.' : 'Invalid token. Check AFAX_WEB_TOKEN.';
+  return LOGIN_TEMPLATE.replace('%%FIELDS%%', fields).replace('%%BODY%%', submitScript).replace('%%ERR%%', errMsg);
+}
+
+const LOGIN_TEMPLATE = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>AFAX — sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -468,18 +551,17 @@ const LOGIN = `<!doctype html><html lang="en"><head><meta charset="utf-8">
   <form id="f">
     <h1>Welcome back</h1>
     <p>Your company on autopilot — sign in to continue.</p>
-    <label for="t">Access token</label>
-    <input id="t" type="password" placeholder="AFAX_WEB_TOKEN" autocomplete="current-password" autofocus>
+    %%FIELDS%%
     <button type="submit">Sign in</button>
     <div class="e" id="e"></div>
   </form>
-  <div class="foot">Token-gated · local-first · open source</div>
+  <div class="foot">Secure · local-first · open source</div>
 </div>
 <script>
 document.getElementById("f").addEventListener("submit",function(ev){ev.preventDefault();
   var btn=document.querySelector("button"); btn.textContent="Signing in…"; btn.disabled=true;
-  fetch("/api/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:document.getElementById("t").value})})
-  .then(function(r){ if(r.ok){location.href="/";} else {document.getElementById("e").textContent="Invalid token. Check AFAX_WEB_TOKEN."; btn.textContent="Sign in"; btn.disabled=false;}})
+  fetch("/api/login",{method:"POST",headers:{"content-type":"application/json"},%%BODY%%})
+  .then(function(r){ if(r.ok){location.href="/";} else {document.getElementById("e").textContent="%%ERR%%"; btn.textContent="Sign in"; btn.disabled=false;}})
   .catch(function(){document.getElementById("e").textContent="Network error."; btn.textContent="Sign in"; btn.disabled=false;});
 });
 </script></body></html>`;

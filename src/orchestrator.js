@@ -5,6 +5,7 @@ import { load, hasLLM } from './config.js';
 import { read } from './store.js';
 import { recall, remember } from './memory.js';
 import { tokenize } from './agents/automation.js';
+import { styleBlock } from './style.js';
 import { c, header, table, ok, info, warn, step, spin, log, dim } from './logger.js';
 
 // Snapshot of the whole company in numbers.
@@ -138,7 +139,8 @@ async function decide(stateText, mem, cfg) {
     system:
       'You are the AFAX orchestrator running an autonomous company. Given the current state, choose the 2-4 ' +
       'highest-leverage next actions to grow revenue. Only use the available commands verbatim with concrete arguments. ' +
-      'Prefer actions that compound. Respond JSON: {"reasoning":"<1 sentence>","actions":[{"command":"<exact afax subcommand>","why":"<short>"}]}',
+      'Prefer actions that compound. Respond JSON: {"reasoning":"<1 sentence>","actions":[{"command":"<exact afax subcommand>","why":"<short>"}]}\n\n' +
+      styleBlock(cfg) + '\n(The "reasoning" and "why" fields follow these language and style rules; commands stay literal.)',
     messages: [
       {
         role: 'user',

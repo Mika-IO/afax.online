@@ -10,19 +10,28 @@ export function status() {
   return { connected: ready, driver: e.driver, from: e.from || '(no from)' };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 // send({ to, subject, text, html }) -> { id } | throws
 export async function send({ to, subject, text, html }) {
   const e = integration('email');
   if (!e.from) throw new Error('No sender. Set integrations.email.from (afax connect email).');
+  // Validate the recipient up-front — a malformed address is the most common
+  // cause of a wasted/confused send (and of Resend 422s).
+  if (!to || !EMAIL_RE.test(String(to))) throw new Error(`Invalid recipient address: "${to}".`);
 
   if (e.driver === 'resend') {
     if (!e.apiKey) throw new Error('Missing Resend API key.');
-    const r = await http('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${e.apiKey}` },
-      json: { from: e.from, to: [to], subject, text, html: html || undefined },
-    });
-    return { id: r.id };
+    try {
+      const r = await http('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${e.apiKey}` },
+        json: { from: e.from, to: [to], subject, text, html: html || undefined },
+      });
+      return { id: r.id };
+    } catch (err) {
+      throw new Error(resendHint(err.message, e));
+    }
   }
 
   if (e.driver === 'sendgrid') {
@@ -43,6 +52,19 @@ export async function send({ to, subject, text, html }) {
   if (e.driver === 'smtp') return smtpSend(e, { to, subject, text });
 
   throw new Error(`Unknown email driver "${e.driver}".`);
+}
+
+// Resend most often replies 422 for two reasons: the `from` domain isn't verified
+// yet, or (on a brand-new account in test mode) you may only send to the email you
+// signed up with. Turn the raw API error into something actionable.
+function resendHint(msg, e) {
+  if (/422/.test(msg)) {
+    return `Resend rejected the send (422). Usual causes: the sending domain of "${e.from}" ` +
+      `is not verified in Resend, or your account is still in test mode (which only allows sending ` +
+      `to your own verified address). Verify your domain at https://resend.com/domains. — ${msg}`;
+  }
+  if (/403/.test(msg)) return `Resend denied the request (403) — check the API key. — ${msg}`;
+  return msg;
 }
 
 // Minimal SMTP client over implicit TLS (port 465), AUTH LOGIN.

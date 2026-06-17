@@ -3,6 +3,7 @@
 import { chat } from '../llm/index.js';
 import { load, hasLLM } from '../config.js';
 import { memoryBlock, remember } from '../memory.js';
+import { styleBlock } from '../style.js';
 
 export class Agent {
   constructor({ key, name, emoji, role, system }) {
@@ -29,6 +30,7 @@ export class Agent {
       this.system,
       profile && `\nBusiness profile:\n${profile}`,
       memoryBlock(this.key) && `\n${memoryBlock(this.key)}`,
+      `\n${styleBlock()}`,
       extra && `\n${extra}`,
     ]
       .filter(Boolean)
