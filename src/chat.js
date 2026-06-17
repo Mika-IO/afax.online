@@ -159,6 +159,7 @@ function systemPrompt() {
     '  Use the address EXACTLY as given — never alter, guess, or substitute it, and never use `outreach` (that targets leads) for a one-off email.',
     '- To change the SENDER ("from") address, run `email from <addr>` (or `config set integrations.email.from <addr>`). Never say it can\'t be changed.',
     '- When asked whether someone replied / about received messages, run `inbox` and report what is there. Do NOT claim you can\'t see received email. If inbox is empty, say so — and note replies only land if inbound email (MX + the /inbound/email webhook) is configured.',
+    '- `config set <dotted.path> <value>` changes ANY setting. Examples: change the AI model → `config set providers.openai.model <id>` (e.g. gpt-5); switch provider → `config set provider anthropic`; cap spend → `config set budget.monthly 50`. NEVER say a config change is "unsupported" — if it lives in config, you can set it; just run the command.',
     '',
     styleBlock(cfg),
     '(These language and style rules govern the "say" field.)',
