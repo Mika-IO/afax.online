@@ -12,6 +12,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tweet via API v2 (`src/integrations/x.js`), wired into the registry +
   `connections`. (Posting needs a user-context token with `tweet.write`; a
   read-only app bearer 403s, and the error says so.)
+- **zernio (multi-platform social publishing).** Real integration with the zernio
+  API (https://zernio.com/api/v1): `afax zernio accounts` lists connected social
+  accounts, `afax zernio post --content "..." [--platform x] [--live]` publishes
+  to one or all connected platforms at once. Exposed to the chat agent; live-gated;
+  catalog test does a real `/accounts` check + smart-paste detects `sk_…` keys.
+  (`src/integrations/zernio.js`)
 - **MCP client.** Talk to any Model Context Protocol server over Streamable HTTP
   (JSON-RPC): `afax mcp tools` lists the server's tools, `afax mcp call <tool>
   --args '<json>'` invokes one. Exposed to the chat agent (call is
@@ -79,10 +85,9 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   budget input that writes `budget.monthly` (0 = unlimited) — no more CLI-only.
 
 ### Fixed
-- **Honest integration tests.** Test buttons no longer fake a pass: `mcp` now
-  runs a real `tools/list`, and `zernio` reports "not implemented yet" instead of
-  a bogus "saved" (it has no integration code — awaiting its API). `slack`/
-  `discord` still note their send is webhook-format-only.
+- **Honest integration tests.** Test buttons no longer fake a pass: `mcp` runs a
+  real `tools/list` and `zernio` a real `/accounts` check (both were hard-coded
+  "ok"). `slack`/`discord` still note their send is webhook-format-only.
 - **Literal `\n` in sent emails.** The chat agent passes the body with backslash
   escapes (it's a string inside a command inside JSON); `email send` now unescapes
   `\n`/`\t`/`\r` so messages arrive with real line breaks. (`src/agents/mailer.js`)

@@ -8,8 +8,9 @@ import * as leads from './leads.js';
 import * as media from './media.js';
 import * as payments from './payments.js';
 import * as x from './x.js';
+import * as zernio from './zernio.js';
 
-export { email, meta, messaging, leads, media, payments, x };
+export { email, meta, messaging, leads, media, payments, x, zernio };
 
 // Aggregate connection status for `afax connections`.
 export function connections() {
@@ -30,6 +31,7 @@ export function connections() {
     ['Media (images)', md.connected, `${md.driver} · ${md.model}`],
     ['Payments (Stripe)', payments.status().connected, payments.status().webhook ? 'API + webhook' : 'API'],
     ['X (Twitter)', x.status().connected, 'API v2'],
+    ['zernio (social)', zernio.status().connected, 'multi-platform publish'],
   ];
 }
 

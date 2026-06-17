@@ -142,6 +142,10 @@ export async function dispatch(argv) {
       const { cmd: mcp } = await import('./integrations/mcp.js');
       return mcp(args);
     }
+    case 'zernio': {
+      const { cmd: zernio } = await import('./integrations/zernio.js');
+      return zernio(args);
+    }
     case 'outreach':
       return args._[0] === 'preview' ? outreach.preview() : outreach.cmd(args);
     case 'deploy':

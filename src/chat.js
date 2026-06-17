@@ -85,6 +85,7 @@ task add "<title>" [--detail "..."] | task list [--all] | task start|done|reopen
 schedule "<when>" --do "<cmd>" | schedule list|run|rm <id>
 export [--out f] | import <file> | connections | config show|get|set
 mcp tools | mcp call <tool> --args '<json>'   (list/call tools on the connected MCP server)
+zernio accounts | zernio post --content "<text>" [--platform x|instagram|telegram|…] [--live]   (publish to many social platforms at once via zernio)
 inbox   (list inbound messages received — emails/WhatsApp/Telegram replies that reached the server; check here when asked "did they reply?")
 deploy --src <dir> [--run "<cmd>"] [--live]`.trim();
 

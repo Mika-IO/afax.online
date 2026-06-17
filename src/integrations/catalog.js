@@ -112,12 +112,11 @@ export const CATALOG = [
     test: async () => (await import('./mcp.js')).test(),
   },
   {
-    key: 'zernio', label: 'zernio', kind: 'integration', secret: 'integrations.zernio.apiKey',
-    get: '',
-    fields: [{ path: 'integrations.zernio.apiKey', label: 'API key', secret: true, placeholder: '…' }],
-    detect: null,
-    // Honest: zernio has no implementation yet (awaiting its API docs).
-    test: async () => ({ ok: false, msg: 'key saved, but zernio integration is not implemented yet' }),
+    key: 'zernio', label: 'zernio (social)', kind: 'integration', secret: 'integrations.zernio.apiKey',
+    get: 'https://docs.zernio.com',
+    fields: [{ path: 'integrations.zernio.apiKey', label: 'API key', secret: true, placeholder: 'sk_…' }],
+    detect: /^sk_[a-f0-9]{64}$/,
+    test: async () => (await import('./zernio.js')).test(),
   },
 ];
 
