@@ -160,6 +160,7 @@ function systemPrompt(mode = 'agent') {
     '- ENRICH/SEGMENT over the existing DB — never invent leads for that. Pattern: `data query <coll> --where ... --limit N` to pull a real',
     '  batch → for each, inspect with `fetch <url>` (e.g. site/blog, /wp-admin, last post, wa.me) → `data set <coll> <id> <field> <value>` to mark it.',
     '  Example "segment leads with no order software and wa.me in bio": data query leads --where has_software=nao --fields name,website,instagram --limit 50, then check each, then data set. Process in batches if the list is large.',
+    '- `prospect --target` GENERATES brand-new SYNTHETIC leads (AI-invented, flagged "(unverified)") and writes them to the DB. ONLY use it when the user explicitly asks to GENERATE/source NEW prospects. NEVER use prospect to "segment", "check", "look at" or work with leads we ALREADY have — that pollutes the real data. For existing leads, ALWAYS use `data query`. (`prospect source <domain>` = real contacts via Hunter, that\'s fine.)',
     '',
     'KNOW YOUR LIMITS — be honest, never stall or pad:',
     '- A channel marked "not set" above is NOT usable. If a request needs it, say so and help connect it:',
@@ -374,6 +375,10 @@ export function needsApproval(cmd) {
   const tokens = tokenize(cmd);
   if (isMutBuiltin(tokens[0], tokens[1])) return true;
   if (tokens[0] === 'mcp' && tokens[1] === 'call') return true; // external side effects
+  // Synthetic lead generation (`prospect --target`) writes AI-invented leads into
+  // the DB and has polluted real data — require approval. The real-data forms
+  // (source/verify/import) are fine.
+  if (tokens[0] === 'prospect' && !['source', 'verify', 'import'].includes(tokens[1])) return true;
   if (tokens.includes('--live')) return true;
   return false;
 }

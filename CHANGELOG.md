@@ -85,6 +85,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   budget input that writes `budget.monthly` (0 = unlimited) — no more CLI-only.
 
 ### Fixed
+- **`prospect` no longer silently pollutes real data.** Synthetic lead generation
+  (`prospect --target`, which invents "(unverified)" leads) now requires approval,
+  and the agent is told to use `data query` for existing leads and never use
+  prospect to "segment/check" them. Real-data forms (`prospect source|verify|
+  import`) stay unguarded. (`src/chat.js`)
 - **Honest integration tests.** Test buttons no longer fake a pass: `mcp` runs a
   real `tools/list` and `zernio` a real `/accounts` check (both were hard-coded
   "ok"). `slack`/`discord` still note their send is webhook-format-only.
