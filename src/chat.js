@@ -70,7 +70,7 @@ sales pipeline [--deal "<n>" --value N --stage <s>] | sales followup --deal "<n>
 content blog|email|post|landing|ad --topic "<t>" [--save f] | content image --prompt "<p>" | content list
 content carousel|meme|poster|reel --topic "<t>" [--spec f.json] [--lang pt] [--accent #hex] [--duration N]   (premium HTML→PNG/MP4 assets; reel = motion video)
 crm contact add "<email>" [--name --company] | crm contact list|show | crm note "<email>" "<text>"
-email send --to <addr> --subject "<s>" --body "<text>" [--live] | email status   (one email to ONE exact address — use this instead of outreach when the user names a recipient)
+email send --to <addr> --subject "<s>" --body "<text>" [--live] | email from <addr> | email status   (one email to ONE exact address — use instead of outreach when the user names a recipient; "email from" changes the sender address)
 automation flow add "<name>" --trigger "<t>" --steps "<cmd; cmd>" | automation flow list|run|rm
 finance revenue --source "<s>" --amount N [--type subscription] | finance expense --label "<l>" --amount N
 finance invoice --to "<who>" --amount N [--live] | finance report
@@ -153,6 +153,7 @@ function systemPrompt() {
     '- Outbound commands send real messages only when the user clearly asked AND the channel is connected; otherwise keep them dry-run.',
     '- When the user names an email recipient (e.g. "email me at x@y.com"), use `email send --to <that exact address>`.',
     '  Use the address EXACTLY as given — never alter, guess, or substitute it, and never use `outreach` (that targets leads) for a one-off email.',
+    '- To change the SENDER ("from") address, run `email from <addr>` (or `config set integrations.email.from <addr>`). Never say it can\'t be changed.',
     '',
     styleBlock(cfg),
     '(These language and style rules govern the "say" field.)',

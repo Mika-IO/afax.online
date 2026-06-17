@@ -222,6 +222,9 @@
   .budgetbox label{font:600 11px/1 var(--mono);color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
   .budgetbox input{width:120px;background:var(--bg-3);border:1px solid var(--line-2);color:var(--ink);border-radius:9px;padding:8px 11px;font:inherit;font-size:13px}
   .budgetbox input:focus{outline:none;border-color:var(--accent-line)}
+  .btn.xs{padding:4px 9px;font-size:11px}
+  td.rowact{white-space:nowrap;text-align:right;width:1%}
+  td.rowact .btn{margin-left:6px}
 </style>
 </head>
 <body>
@@ -315,7 +318,7 @@
           <button data-t="tasks">Tasks</button>
         </div>
         <div class="dbview on" id="db-table">
-          <div class="dbbar"><input id="dbSearch" placeholder="Search…"><span class="muted" id="dbCount"></span><span style="flex:1"></span><button class="btn" id="dbRefresh">Refresh</button></div>
+          <div class="dbbar"><input id="dbSearch" placeholder="Search…"><span class="muted" id="dbCount"></span><span style="flex:1"></span><button class="btn pri" id="dbNew">+ New</button><button class="btn" id="dbRefresh">Refresh</button></div>
           <div class="card tablecard"><div id="dbBody"></div></div>
           <div class="pager" id="dbPager" hidden><button class="btn" id="dbPrev">&larr;</button><span id="dbInfo"></span><button class="btn" id="dbNext">&rarr;</button></div>
         </div>
@@ -350,6 +353,14 @@
     <div class="fld"><label>What should this task do?</label><textarea id="tk_goal" placeholder="e.g. find 20 e-commerces not using Pix and send the first outreach"></textarea></div>
   </div>
   <div class="mf"><button class="btn" id="cancelModal">Cancel</button><button class="btn pri" id="createTask">Create task</button></div>
+</div></div>
+<div class="scrim" id="recScrim"><div class="modal" role="dialog">
+  <div class="mh"><b id="recTitle">Record</b><button class="x" id="recClose">✕</button></div>
+  <div class="mb">
+    <div class="fld"><label>Record fields (JSON)</label><textarea id="recJson" spellcheck="false" style="min-height:240px;font-family:var(--mono);font-size:12.5px;line-height:1.5"></textarea></div>
+    <div class="muted" id="recErr" style="color:var(--rose);min-height:16px"></div>
+  </div>
+  <div class="mf"><button class="btn" id="recDel" style="margin-right:auto;border-color:var(--rose)">Delete</button><button class="btn" id="recCancel">Cancel</button><button class="btn pri" id="recSave">Save</button></div>
 </div></div>
 <div id="toast"></div>
 
@@ -545,10 +556,12 @@ el("dbtabs").addEventListener("click",function(e){ var b=e.target.closest("butto
   loadDb();
 });
 function loadDb(){ if(dbColl==="pipeline") loadPipeline(); else loadColl(); }
+var dbRows={};
 function tableHtml(rows, cols){
-  if(!rows.length) return '<p class="muted" style="padding:16px">Empty.</p>';
+  if(!rows.length) return '<p class="muted" style="padding:16px">Empty. Use <b>+ New</b> to add a record.</p>';
+  dbRows={}; rows.forEach(function(r){ dbRows[r.id]=r; });
   var ks=cols||Object.keys(rows[0]).filter(function(k){return k!=="id"&&k!=="updatedAt";}).slice(0,7);
-  return "<table><thead><tr>"+ks.map(function(k){return "<th>"+esc(k)+"</th>";}).join("")+"</tr></thead><tbody>"+rows.map(function(r){ return "<tr>"+ks.map(function(k){ var v=r[k]; if(k==="createdAt"&&v) v=String(v).slice(0,16).replace("T"," "); return "<td>"+esc(typeof v==="object"?JSON.stringify(v):v)+"</td>"; }).join("")+"</tr>"; }).join("")+"</tbody></table>";
+  return "<table><thead><tr>"+ks.map(function(k){return "<th>"+esc(k)+"</th>";}).join("")+"<th></th></tr></thead><tbody>"+rows.map(function(r){ return "<tr>"+ks.map(function(k){ var v=r[k]; if(k==="createdAt"&&v) v=String(v).slice(0,16).replace("T"," "); return "<td>"+esc(typeof v==="object"?JSON.stringify(v):v)+"</td>"; }).join("")+'<td class="rowact"><button class="btn xs" data-edit="'+esc(r.id)+'">Edit</button><button class="btn xs" data-del="'+esc(r.id)+'">✕</button></td></tr>'; }).join("")+"</tbody></table>";
 }
 function loadColl(){
   var qs="?limit=25&offset="+(dbPage*25)+(dbQ?"&q="+encodeURIComponent(dbQ):"");
@@ -559,8 +572,32 @@ function loadColl(){
     var pages=Math.max(1,Math.ceil((d.total||0)/25));
     el("dbPager").hidden=pages<=1; el("dbInfo").textContent="Page "+(dbPage+1)+" of "+pages;
     el("dbPrev").disabled=dbPage<=0; el("dbNext").disabled=dbPage>=pages-1;
+    el("dbBody").querySelectorAll("[data-edit]").forEach(function(b){ b.onclick=function(){ openRec(b.dataset.edit); }; });
+    el("dbBody").querySelectorAll("[data-del]").forEach(function(b){ b.onclick=function(){ if(confirm("Delete this "+dbColl+" record?")) api("/api/data/"+dbColl+"/"+encodeURIComponent(b.dataset.del),{method:"DELETE"}).then(function(){ toast("Deleted"); loadColl(); }); }; });
   });
 }
+/* record CRUD modal */
+var recId=null;
+function openRec(id){
+  recId=id||null;
+  var base = id ? (dbRows[id]||{}) : (Object.keys(dbRows).length ? dbRows[Object.keys(dbRows)[0]] : {});
+  var clean={}; Object.keys(base).forEach(function(k){ if(k!=="id"&&k!=="createdAt"&&k!=="updatedAt") clean[k]= id?base[k]:""; });
+  el("recTitle").textContent=(id?"Edit ":"New ")+dbColl+" record";
+  el("recErr").textContent=""; el("recJson").value=JSON.stringify(clean,null,2);
+  el("recDel").style.display=id?"":"none";
+  el("recScrim").classList.add("on"); el("recJson").focus();
+}
+function closeRec(){ el("recScrim").classList.remove("on"); }
+el("recClose").onclick=el("recCancel").onclick=closeRec;
+el("recScrim").onclick=function(e){ if(e.target===el("recScrim")) closeRec(); };
+el("dbNew").onclick=function(){ openRec(null); };
+el("recSave").onclick=function(){
+  var obj; try{ obj=JSON.parse(el("recJson").value); }catch(e){ el("recErr").textContent="Invalid JSON: "+e.message; return; }
+  var req= recId ? api("/api/data/"+dbColl+"/"+encodeURIComponent(recId),{method:"PUT",body:JSON.stringify(obj)})
+                 : api("/api/data/"+dbColl,{method:"POST",body:JSON.stringify(obj)});
+  req.then(function(){ closeRec(); toast(recId?"Saved":"Created"); loadColl(); }).catch(function(e){ el("recErr").textContent=e.message; });
+};
+el("recDel").onclick=function(){ if(!recId) return; if(!confirm("Delete this "+dbColl+" record?")) return; api("/api/data/"+dbColl+"/"+encodeURIComponent(recId),{method:"DELETE"}).then(function(){ closeRec(); toast("Deleted"); loadColl(); }); };
 var dt; el("dbSearch").addEventListener("input",function(){ clearTimeout(dt); dt=setTimeout(function(){ dbQ=el("dbSearch").value.trim(); dbPage=0; loadColl(); },220); });
 el("dbRefresh").onclick=function(){ loadDb(); };
 el("dbPrev").onclick=function(){ if(dbPage>0){ dbPage--; loadColl(); } };

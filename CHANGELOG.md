@@ -8,6 +8,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.5.0] — 2026-06-17
 
 ### Added
+- **Database CRUD in the panel.** The Database view now creates, edits and
+  deletes records inline — a **+ New** button and per-row Edit/✕ open a JSON
+  editor modal (wired to the existing `POST/PUT/DELETE /api/data/:c[/:id]`).
+- **Change the email sender by command.** `afax email from <addr>` (and
+  `email set from <addr>`) sets `integrations.email.from` for the active
+  workspace, so the chat agent can do it in natural language instead of saying
+  it can't. (`src/agents/mailer.js`)
 - **Delete a workspace from the panel.** `DELETE /api/workspaces/:slug`
   (refuses the active one; unlike the CLI it can remove `default`).
   (`src/web.js`, `src/workspace.js`)

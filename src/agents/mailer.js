@@ -4,7 +4,7 @@
 // used to repurpose `outreach` (which sends to LEADS) and would sometimes invent
 // or pick the wrong recipient. `email send --to <addr>` removes the ambiguity:
 // exactly one validated address, the live/dry-run gate, and a CRM trail.
-import { isLive } from '../config.js';
+import { isLive, load, save } from '../config.js';
 import { add } from '../store.js';
 import * as email from '../integrations/email.js';
 import { dm } from '../integrations/registry.js';
@@ -17,7 +17,17 @@ export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export async function cmd(args) {
   const sub = args._[0];
   if (sub === 'status') return statusCmd();
-  if (sub && sub !== 'send') return warn('Usage: afax email send --to <addr> --subject "..." --body "..." [--live]  |  afax email status');
+  // `email from <addr>`  /  `email set from <addr>` — change the sender address.
+  if (sub === 'from' || (sub === 'set' && args._[1] === 'from')) {
+    const addr = String((sub === 'from' ? args._[1] : args._[2]) || args.from || '').trim();
+    if (!addr) return warn('Usage: afax email from you@yourdomain.com');
+    if (!EMAIL_RE.test(addr)) return warn(`"${addr}" is not a valid email address.`);
+    const cfg = load();
+    cfg.integrations.email.from = addr;
+    save(cfg);
+    return ok(`Email sender set to ${c.bold(addr)} (workspace ${cfg.workspace}).`);
+  }
+  if (sub && sub !== 'send') return warn('Usage: afax email send --to <addr> --subject "..." --body "..." [--live]  |  afax email from <addr>  |  afax email status');
 
   const to = String(args.to || args._[1] || '').trim();
   const subject = String(args.subject || 'Hello').trim();
