@@ -8,6 +8,9 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.5.0] — 2026-06-17
 
 ### Added
+- **Bulk data import.** `POST /api/data/:c/bulk` writes many records in one
+  request (`mode` append|replace, ids/timestamps auto-filled, 48 MB body) — for
+  migrating large scraped-lead CSVs without a call-per-record. (`src/web.js`)
 - **Company output language.** A new `business.language` profile field makes the
   whole company speak one language across every output — chat, `outreach`,
   `email send`, content. It holds regardless of the incoming message's language
