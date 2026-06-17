@@ -102,21 +102,22 @@ export const CATALOG = [
       : { ok: false, msg: 'set the ad account id' }),
   },
   {
-    key: 'mcp', label: 'Meta MCP', kind: 'integration', secret: 'integrations.mcp.token',
-    get: 'https://developers.facebook.com',
+    key: 'mcp', label: 'MCP server', kind: 'integration', secret: 'integrations.mcp.token',
+    get: 'https://modelcontextprotocol.io',
     fields: [
-      { path: 'integrations.mcp.url', label: 'MCP server URL', placeholder: 'https://…' },
+      { path: 'integrations.mcp.url', label: 'MCP server URL', placeholder: 'https://… (Streamable HTTP)' },
       { path: 'integrations.mcp.token', label: 'Auth token', secret: true, placeholder: '…' },
     ],
     detect: null,
-    test: async () => ({ ok: true, msg: 'saved (no live check)' }),
+    test: async () => (await import('./mcp.js')).test(),
   },
   {
     key: 'zernio', label: 'zernio', kind: 'integration', secret: 'integrations.zernio.apiKey',
     get: '',
     fields: [{ path: 'integrations.zernio.apiKey', label: 'API key', secret: true, placeholder: '…' }],
     detect: null,
-    test: async () => ({ ok: true, msg: 'saved' }),
+    // Honest: zernio has no implementation yet (awaiting its API docs).
+    test: async () => ({ ok: false, msg: 'key saved, but zernio integration is not implemented yet' }),
   },
 ];
 

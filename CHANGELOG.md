@@ -8,6 +8,15 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.5.0] — 2026-06-17
 
 ### Added
+- **X (Twitter) posting.** `marketing publish --platform x` now actually posts a
+  tweet via API v2 (`src/integrations/x.js`), wired into the registry +
+  `connections`. (Posting needs a user-context token with `tweet.write`; a
+  read-only app bearer 403s, and the error says so.)
+- **MCP client.** Talk to any Model Context Protocol server over Streamable HTTP
+  (JSON-RPC): `afax mcp tools` lists the server's tools, `afax mcp call <tool>
+  --args '<json>'` invokes one. Exposed to the chat agent (call is
+  approval-gated). The catalog test is now a real `tools/list` check, not a
+  hard-coded OK. (`src/integrations/mcp.js`)
 - **Generic agent data + web tools (agnostic enrichment).** The chat agent gained
   composable primitives so it can do arbitrary "pull a batch → inspect → mark"
   jobs over the REAL database instead of inventing leads: `data query <coll>
@@ -70,6 +79,10 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   budget input that writes `budget.monthly` (0 = unlimited) — no more CLI-only.
 
 ### Fixed
+- **Honest integration tests.** Test buttons no longer fake a pass: `mcp` now
+  runs a real `tools/list`, and `zernio` reports "not implemented yet" instead of
+  a bogus "saved" (it has no integration code — awaiting its API). `slack`/
+  `discord` still note their send is webhook-format-only.
 - **Literal `\n` in sent emails.** The chat agent passes the body with backslash
   escapes (it's a string inside a command inside JSON); `email send` now unescapes
   `\n`/`\t`/`\r` so messages arrive with real line breaks. (`src/agents/mailer.js`)

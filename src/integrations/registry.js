@@ -7,8 +7,9 @@ import * as messaging from './messaging.js';
 import * as leads from './leads.js';
 import * as media from './media.js';
 import * as payments from './payments.js';
+import * as x from './x.js';
 
-export { email, meta, messaging, leads, media, payments };
+export { email, meta, messaging, leads, media, payments, x };
 
 // Aggregate connection status for `afax connections`.
 export function connections() {
@@ -28,6 +29,7 @@ export function connections() {
     ['Leads', l.connected, l.driver],
     ['Media (images)', md.connected, `${md.driver} · ${md.model}`],
     ['Payments (Stripe)', payments.status().connected, payments.status().webhook ? 'API + webhook' : 'API'],
+    ['X (Twitter)', x.status().connected, 'API v2'],
   ];
 }
 
@@ -43,6 +45,7 @@ export async function publish({ platform, message, imageUrl, link, live }) {
       case 'telegram': return messaging.telegramSend({ text: message });
       case 'slack': return messaging.slackSend({ text: message });
       case 'discord': return messaging.discordSend({ text: message });
+      case 'x': case 'twitter': return x.post({ text: message });
       default: throw new Error(`Unknown publish platform "${platform}".`);
     }
   });

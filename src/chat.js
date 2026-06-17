@@ -71,7 +71,7 @@ prospect --target "<icp>" --limit N | prospect source <domain> | prospect verify
 outreach --channel email|whatsapp|telegram --limit N [--live] | outreach preview
 marketing channel list | marketing channel <key> enable|disable
 marketing campaign --channel <key> --goal "<g>" | marketing campaigns
-marketing publish --platform facebook|instagram|telegram|slack|discord [--message|--topic] [--image url] [--live]
+marketing publish --platform facebook|instagram|telegram|slack|discord|x [--message|--topic] [--image url] [--live]
 marketing ads --goal "<g>" --budget <usd/day> [--live]
 sales pipeline [--deal "<n>" --value N --stage <s>] | sales followup --deal "<n>" | sales move --deal "<n>" --stage <s>
 content blog|email|post|landing|ad --topic "<t>" [--save f] | content image --prompt "<p>" | content list
@@ -84,6 +84,7 @@ finance invoice --to "<who>" --amount N [--live] | finance report
 task add "<title>" [--detail "..."] | task list [--all] | task start|done|reopen|rm <id>
 schedule "<when>" --do "<cmd>" | schedule list|run|rm <id>
 export [--out f] | import <file> | connections | config show|get|set
+mcp tools | mcp call <tool> --args '<json>'   (list/call tools on the connected MCP server)
 inbox   (list inbound messages received — emails/WhatsApp/Telegram replies that reached the server; check here when asked "did they reply?")
 deploy --src <dir> [--run "<cmd>"] [--live]`.trim();
 
@@ -362,6 +363,7 @@ const isReadOnlyCmd = (tokens) => {
   const h = tokens[0], s = tokens[1];
   if (isReadBuiltin(h, s)) return true;
   if (['status', 'usage', 'connections', 'inbox'].includes(h)) return true;
+  if (h === 'mcp' && s === 'tools') return true;
   if (['list', 'show', 'preview', 'report', 'campaigns'].includes(s)) return true;
   return false;
 };
@@ -370,6 +372,7 @@ const isReadOnlyCmd = (tokens) => {
 export function needsApproval(cmd) {
   const tokens = tokenize(cmd);
   if (isMutBuiltin(tokens[0], tokens[1])) return true;
+  if (tokens[0] === 'mcp' && tokens[1] === 'call') return true; // external side effects
   if (tokens.includes('--live')) return true;
   return false;
 }

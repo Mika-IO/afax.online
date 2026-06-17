@@ -138,6 +138,10 @@ export async function dispatch(argv) {
       const { cmd: mailer } = await import('./agents/mailer.js');
       return mailer(args);
     }
+    case 'mcp': {
+      const { cmd: mcp } = await import('./integrations/mcp.js');
+      return mcp(args);
+    }
     case 'outreach':
       return args._[0] === 'preview' ? outreach.preview() : outreach.cmd(args);
     case 'deploy':
