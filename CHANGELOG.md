@@ -8,6 +8,9 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.5.0] — 2026-06-17
 
 ### Added
+- **Delete a workspace from the panel.** `DELETE /api/workspaces/:slug`
+  (refuses the active one; unlike the CLI it can remove `default`).
+  (`src/web.js`, `src/workspace.js`)
 - **Bulk data import.** `POST /api/data/:c/bulk` writes many records in one
   request (`mode` append|replace, ids/timestamps auto-filled, 48 MB body) — for
   migrating large scraped-lead CSVs without a call-per-record. (`src/web.js`)

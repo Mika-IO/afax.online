@@ -283,6 +283,16 @@ async function handle(req, res, ctx) {
     ctx.messages.length = 0; ctx.conversationId = null;
     return send(res, 200, { ok: true, workspaces: summary() });
   }
+  const wsDel = path.match(/^\/api\/workspaces\/([a-z0-9-]+)$/);
+  if (wsDel && req.method === 'DELETE' && wsDel[1] !== 'use') {
+    const { removeWorkspace, summary } = await import('./workspace.js');
+    try {
+      const removed = removeWorkspace(wsDel[1]);
+      return send(res, 200, { ok: true, removed, workspaces: summary() });
+    } catch (e) {
+      return send(res, 400, { error: e.message });
+    }
+  }
 
   if (path === '/api/config' && req.method === 'GET') {
     return send(res, 200, { fields: flattenConfig(load()) });

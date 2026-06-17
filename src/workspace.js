@@ -49,6 +49,16 @@ export function summary() {
   });
 }
 
+// Remove a workspace directory. Refuses the active one (switch first). Unlike
+// the CLI `rm`, this allows removing `default` — used by the web panel.
+export function removeWorkspace(name) {
+  const slug = slugify(name);
+  if (slug === activeSlug()) throw new Error('Cannot remove the active workspace — switch to another first.');
+  if (!listSlugs().includes(slug)) return false;
+  rmSync(workspaceDir(slug), { recursive: true, force: true });
+  return true;
+}
+
 // afax workspace [list|create <name>|use <name>|rm <name>|current]
 export function cmd(args) {
   const action = args._[0] || 'list';
