@@ -21,6 +21,31 @@ export async function fetchText(url, maxChars = 8000) {
   return { url, title: titleOf(html), text: text.slice(0, maxChars) };
 }
 
+// Richer fetch for agent inspection: returns HTTP status + redirect location so
+// the agent can tell 200 vs 404 vs a redirect (e.g. /wp-admin → login). Still
+// SSRF-guarded; does not follow redirects (manual) into private space.
+export async function fetchPage(url, maxChars = 4000) {
+  url = await assertSafeUrl(url);
+  let res, body = '';
+  try {
+    res = await fetch(url, {
+      headers: { 'user-agent': 'AFAX/0.1 (+https://afax.online)' },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(15000),
+    });
+    body = await res.text().catch(() => '');
+  } catch (e) {
+    throw new Error(`Could not fetch ${url}: ${e.message}`);
+  }
+  return {
+    url, status: res.status, ok: res.ok,
+    location: res.headers.get('location') || '',
+    contentType: res.headers.get('content-type') || '',
+    title: titleOf(body),
+    text: stripHtml(body).slice(0, maxChars),
+  };
+}
+
 function stripHtml(html) {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')

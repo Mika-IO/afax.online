@@ -9,6 +9,8 @@ import { resolve, join, relative, basename, dirname } from 'node:path';
 import { chat as llm } from './llm/index.js';
 import { load, hasLLM, activeProvider } from './config.js';
 import { snapshot } from './orchestrator.js';
+import { read, update, COLLECTIONS } from './store.js';
+import { fetchPage } from './integrations/web.js';
 import { connections } from './integrations/registry.js';
 import { recall, remember } from './memory.js';
 import { tokenize } from './agents/automation.js';
@@ -47,6 +49,11 @@ fs append <path> --content "<text>"   append to a file (asks approval)
 fs mkdir <path>         create a directory (asks approval)
 fs mv <src> <dst>       move/rename a file (asks approval)
 fs rm <path>            delete a file or directory (asks approval)
+data query <collection> [--where f=v,f~substr,f!=v,n>10] [--limit N] [--fields a,b]   read/segment ANY collection (leads, contacts, deals, content…) over the existing DB
+data count <collection> [--where ...]    how many records match
+data get <collection> <id>               full record by id
+data set <collection> <id> <field> <value>   write/annotate a field on a record (asks approval) — e.g. mark a lead's segment
+fetch <url>             HTTP GET a page (status + redirect + title + text). Works on the server (no browser needed). Use to inspect a lead's site (/blog, /wp-admin, articles, last post, wa.me, etc.)
 browser open <url>      open a real headless browser at <url> → returns page text + numbered [i] elements
 browser read            re-read the current page (text + numbered elements)
 browser click <i>       click element [i] from the latest snapshot
@@ -95,7 +102,17 @@ function connectionLine() {
   }
 }
 
-function systemPrompt() {
+const MODE_PROMPT = {
+  ask:
+    'CURRENT MODE: ASK (answer-only). Do NOT run any command — return an empty "run": []. ' +
+    'Just answer the user\'s question directly and accurately. If acting is needed, say what you WOULD do and suggest switching to Agent mode.',
+  plan:
+    'CURRENT MODE: PLAN. Investigate with READ-ONLY tools only (fs read/ls/tree/find, data query/get/count, fetch, status/usage/connections/inbox, *list/show). ' +
+    'Do NOT change anything — no writes, no data set, no sends, no --live. End with a concise NUMBERED plan of the steps you would run in Agent mode. Anything that mutates is deferred to the plan, not executed.',
+  agent: '',
+};
+
+function systemPrompt(mode = 'agent') {
   const cfg = load();
   const s = snapshot();
   const mem = recall(null, 10).map((m) => `- [${m.scope}] ${m.text}`).join('\n');
@@ -138,6 +155,9 @@ function systemPrompt() {
     '- Chain multiple commands in one turn (explore → generate → preview) instead of doing one and stopping.',
     '- For multi-step or longer work, track it on the shared board: `task add "..."`, mark `task start <id>` when you',
     '  begin and `task done <id>` when finished, so the CEO can watch progress. Keep the board honest and current.',
+    '- ENRICH/SEGMENT over the existing DB — never invent leads for that. Pattern: `data query <coll> --where ... --limit N` to pull a real',
+    '  batch → for each, inspect with `fetch <url>` (e.g. site/blog, /wp-admin, last post, wa.me) → `data set <coll> <id> <field> <value>` to mark it.',
+    '  Example "segment leads with no order software and wa.me in bio": data query leads --where has_software=nao --fields name,website,instagram --limit 50, then check each, then data set. Process in batches if the list is large.',
     '',
     'KNOW YOUR LIMITS — be honest, never stall or pad:',
     '- A channel marked "not set" above is NOT usable. If a request needs it, say so and help connect it:',
@@ -160,6 +180,8 @@ function systemPrompt() {
     '- To change the SENDER ("from") address, run `email from <addr>` (or `config set integrations.email.from <addr>`). Never say it can\'t be changed.',
     '- When asked whether someone replied / about received messages, run `inbox` and report what is there. Do NOT claim you can\'t see received email. If inbox is empty, say so — and note replies only land if inbound email (MX + the /inbound/email webhook) is configured.',
     '- `config set <dotted.path> <value>` changes ANY setting. Examples: change the AI model → `config set providers.openai.model <id>` (e.g. gpt-5); switch provider → `config set provider anthropic`; cap spend → `config set budget.monthly 50`. NEVER say a config change is "unsupported" — if it lives in config, you can set it; just run the command.',
+    '',
+    MODE_PROMPT[mode] || '',
     '',
     styleBlock(cfg),
     '(These language and style rules govern the "say" field.)',
@@ -320,11 +342,34 @@ export function fsTool(args) {
 // --- filesystem write tools (gated by approval) -----------------------------
 // Mutating fs subcommands + any `--live` command require the user's go-ahead.
 const MUTATING_FS = new Set(['write', 'append', 'mkdir', 'mv', 'move', 'rm', 'del', 'delete']);
+const FS_READ = new Set(['ls', 'tree', 'read', 'find']);
+const DATA_READ = new Set(['query', 'get', 'count']);
 
-// Does running this command change the world (disk / outbound send)?
+// Built-in agent tools (fs/data/fetch). Returns output string; browser handled separately.
+async function runBuiltin(cmd, parse) {
+  const tokens = tokenize(cmd);
+  const head = tokens[0], sub = tokens[1];
+  const a = parse(tokens.slice(1));
+  if (head === 'fs') return MUTATING_FS.has(sub) ? fsWriteTool(a) : fsTool(a);
+  if (head === 'data') return sub === 'set' ? dataSetTool(a) : dataTool(a);
+  if (head === 'fetch') return await fetchTool(a);
+  return `Error: not a builtin tool: ${cmd}`;
+}
+const isReadBuiltin = (h, s) => (h === 'fs' && FS_READ.has(s)) || (h === 'data' && DATA_READ.has(s)) || h === 'fetch';
+const isMutBuiltin = (h, s) => (h === 'fs' && MUTATING_FS.has(s)) || (h === 'data' && s === 'set');
+// In Plan mode, only read-only commands run (investigate, don't change).
+const isReadOnlyCmd = (tokens) => {
+  const h = tokens[0], s = tokens[1];
+  if (isReadBuiltin(h, s)) return true;
+  if (['status', 'usage', 'connections', 'inbox'].includes(h)) return true;
+  if (['list', 'show', 'preview', 'report', 'campaigns'].includes(s)) return true;
+  return false;
+};
+
+// Does running this command change the world (disk / DB write / outbound send)?
 export function needsApproval(cmd) {
   const tokens = tokenize(cmd);
-  if (tokens[0] === 'fs' && MUTATING_FS.has(tokens[1])) return true;
+  if (isMutBuiltin(tokens[0], tokens[1])) return true;
   if (tokens.includes('--live')) return true;
   return false;
 }
@@ -377,6 +422,102 @@ export function fsWriteTool(args) {
       return `Deleted ${relative(process.cwd(), p)}`;
     }
     return `Error: unknown fs write tool "${sub}".`;
+  } catch (e) {
+    return `Error: ${e.message}`;
+  }
+}
+
+// --- generic data tools (the agent's hands on the company DB) ----------------
+// Read/segment/annotate ANY collection without a bespoke command per use case.
+const WHERE_RE = /^([A-Za-z0-9_.]+)\s*(!=|>=|<=|~|=|>|<)\s*(.*)$/;
+function parseWhere(s) {
+  if (!s || s === true) return [];
+  return String(s).split(',').map((c) => {
+    const m = c.trim().match(WHERE_RE);
+    return m ? [m[1], m[2], m[3].replace(/^["']|["']$/g, '')] : null;
+  }).filter(Boolean);
+}
+function matchWhere(rec, conds) {
+  return conds.every(([f, op, v]) => {
+    const cell = rec[f];
+    const s = (cell == null ? '' : String(cell)).toLowerCase();
+    const val = String(v).toLowerCase();
+    switch (op) {
+      case '=': return s === val;
+      case '!=': return s !== val;
+      case '~': return s.includes(val);
+      case '>': return Number(cell) > Number(v);
+      case '<': return Number(cell) < Number(v);
+      case '>=': return Number(cell) >= Number(v);
+      case '<=': return Number(cell) <= Number(v);
+      default: return false;
+    }
+  });
+}
+function coerceVal(v) {
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  if (v !== '' && !isNaN(Number(v))) return Number(v);
+  return v;
+}
+
+// Read-only: data query|get|count
+export function dataTool(args) {
+  const sub = args._[0];
+  const coll = args._[1];
+  if (!COLLECTIONS.includes(coll)) return `Error: unknown collection "${coll}". Known: ${COLLECTIONS.join(', ')}`;
+  try {
+    const all = read(coll, []);
+    if (sub === 'count') {
+      const conds = parseWhere(args.where);
+      return `count(${coll}${args.where && args.where !== true ? ' where ' + args.where : ''}) = ${conds.length ? all.filter((r) => matchWhere(r, conds)).length : all.length}`;
+    }
+    if (sub === 'get') {
+      const rec = all.find((r) => r.id === args._[2]);
+      return rec ? JSON.stringify(rec, null, 2) : `Error: no ${coll} record with id ${args._[2]}`;
+    }
+    if (sub === 'query') {
+      const conds = parseWhere(args.where);
+      const matched = conds.length ? all.filter((r) => matchWhere(r, conds)) : all;
+      const limit = Math.min(Math.max(Number(args.limit) || 25, 1), 200);
+      const fields = args.fields && args.fields !== true ? String(args.fields).split(',').map((f) => f.trim()) : null;
+      const rows = matched.slice(0, limit).map((r) => {
+        if (!fields) return r;
+        const o = { id: r.id };
+        for (const f of fields) o[f] = r[f];
+        return o;
+      });
+      return `matched ${matched.length}, showing ${rows.length}:\n` + JSON.stringify(rows, null, 1);
+    }
+    return `Error: unknown data action "${sub}". Use query|get|count|set.`;
+  } catch (e) {
+    return `Error: ${e.message}`;
+  }
+}
+
+// Mutating (approval-gated): data set <coll> <id> <field> <value...>
+export function dataSetTool(args) {
+  const coll = args._[1], id = args._[2], field = args._[3];
+  const value = args._.slice(4).join(' ').replace(/^["']|["']$/g, '');
+  if (!COLLECTIONS.includes(coll)) return `Error: unknown collection "${coll}".`;
+  if (!id || !field) return 'Error: usage — data set <collection> <id> <field> <value>';
+  try {
+    const rec = update(coll, id, { [field]: coerceVal(value) });
+    return rec ? `updated ${coll}/${id}: ${field}=${value}` : `Error: no ${coll} record with id ${id}`;
+  } catch (e) {
+    return `Error: ${e.message}`;
+  }
+}
+
+// Read-only HTTP fetch (SSRF-guarded, server-side, no browser needed).
+async function fetchTool(args) {
+  let url = String(args._[0] || '').replace(/^["']|["']$/g, '');
+  if (!url) return 'Error: usage — fetch <url>';
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  try {
+    const p = await fetchPage(url);
+    return `status ${p.status}${p.ok ? ' OK' : ''}${p.location ? ' → ' + p.location : ''} · ${p.contentType}\n` +
+      (p.title ? `title: ${p.title}\n` : '') + (p.text || '(no text)');
   } catch (e) {
     return `Error: ${e.message}`;
   }
@@ -500,23 +641,22 @@ async function turn(messages, userText, { stream = false, approve } = {}) {
     let results = '';
     for (const cmd of run) {
       const tokens = tokenize(cmd);
-      const head = tokens[0];
-      const mutatingFs = head === 'fs' && MUTATING_FS.has(tokens[1]);
-      if (head === 'fs' && !mutatingFs) {
+      const head = tokens[0], sub = tokens[1];
+      if (isReadBuiltin(head, sub)) {
         log('\n' + c.dim('⏺ ' + cmd));
-        const out = fsTool(parse(tokens.slice(1)));
+        const out = await runBuiltin(cmd, parse);
         results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
         continue;
       }
-      if (mutatingFs || needsApproval(cmd)) {
+      if (isMutBuiltin(head, sub) || needsApproval(cmd)) {
         if (!(await approver(cmd))) {
           results += `[${cmd}] not approved by the user — skipped.\n`;
           info(`Skipped (not approved): ${cmd}`);
           continue;
         }
-        if (mutatingFs) {
+        if (isMutBuiltin(head, sub)) {
           log('\n' + c.dim('⏺ ' + cmd));
-          const out = fsWriteTool(parse(tokens.slice(1)));
+          const out = await runBuiltin(cmd, parse);
           results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
           continue;
         }
@@ -568,10 +708,11 @@ export function welcome() {
 // Programmatic, headless turn used by the web UI. Streams structured events via
 // onEvent: {type:'token',say} · {type:'say',text,usage} · {type:'command',cmd,out}
 // · {type:'done',final}. Shares the same engine, tools and budget as the CLI.
-export async function chatTurn(messages, userText, { onEvent = () => {}, signal, approve } = {}) {
+export async function chatTurn(messages, userText, { onEvent = () => {}, signal, approve, mode = 'agent' } = {}) {
   const { parse } = await import('./cli.js');
   messages.push({ role: 'user', content: userText });
   const approver = approve || (async () => false);
+  const sys = () => systemPrompt(mode);
   let final = '';
   for (let hop = 0; hop <= MAX_ACTIONS_PER_TURN; hop++) {
     if (signal?.aborted) break;
@@ -579,7 +720,7 @@ export async function chatTurn(messages, userText, { onEvent = () => {}, signal,
     let usage;
     try {
       const r = await llm({
-        system: systemPrompt(),
+        system: sys(),
         messages: messages.slice(-MAX_HISTORY),
         json: true,
         temperature: 0.4,
@@ -590,12 +731,13 @@ export async function chatTurn(messages, userText, { onEvent = () => {}, signal,
       json = r.json; usage = r.usage;
     } catch (e) {
       if (signal?.aborted || e.name === 'AbortError') break; // user pressed Stop
-      const r = await llm({ system: systemPrompt(), messages: messages.slice(-MAX_HISTORY), json: false, temperature: 0.4, maxTokens: 4000 });
+      const r = await llm({ system: sys(), messages: messages.slice(-MAX_HISTORY), json: false, temperature: 0.4, maxTokens: 4000 });
       json = { say: (r.text || '').trim() || 'Tive um problema para gerar a resposta. Pode reformular?', run: [] };
       usage = r.usage;
     }
     const say = (json.say || '').trim();
-    const run = (Array.isArray(json.run) ? json.run : []).slice(0, MAX_ACTIONS_PER_TURN);
+    // Ask mode answers only — never executes.
+    const run = mode === 'ask' ? [] : (Array.isArray(json.run) ? json.run : []).slice(0, MAX_ACTIONS_PER_TURN);
     messages.push({ role: 'assistant', content: JSON.stringify(json) });
     onEvent({ type: 'say', text: say, usage });
     if (!run.length || hop === MAX_ACTIONS_PER_TURN) { final = say; break; }
@@ -606,23 +748,29 @@ export async function chatTurn(messages, userText, { onEvent = () => {}, signal,
       // and executing in the background after the user has aborted.
       if (signal?.aborted) { onEvent({ type: 'command', cmd, out: 'stopped by user' }); break; }
       const tokens = tokenize(cmd);
-      const head = tokens[0];
-      const mutatingFs = head === 'fs' && MUTATING_FS.has(tokens[1]);
-      if (head === 'fs' && !mutatingFs) {
-        const out = fsTool(parse(tokens.slice(1)));
+      const head = tokens[0], sub = tokens[1];
+      // Plan mode: only read-only commands run; anything that changes is deferred.
+      if (mode === 'plan' && !isReadOnlyCmd(tokens)) {
+        const out = 'plan mode — not executed (will run in Agent mode).';
+        onEvent({ type: 'command', cmd, out, denied: true });
+        results += `[${cmd}] ${out}\n`;
+        continue;
+      }
+      if (isReadBuiltin(head, sub)) {
+        const out = await runBuiltin(cmd, parse);
         onEvent({ type: 'command', cmd, out });
         results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
         continue;
       }
-      if (mutatingFs || needsApproval(cmd)) {
+      if (isMutBuiltin(head, sub) || needsApproval(cmd)) {
         if (!(await approver(cmd))) {
-          const out = 'needs approval — turn on Auto-approve to let AFAX write files / send live.';
+          const out = 'needs approval — turn on Auto-approve to let AFAX write/send.';
           onEvent({ type: 'command', cmd, out, denied: true });
           results += `[${cmd}] not approved by the user — skipped.\n`;
           continue;
         }
-        if (mutatingFs) {
-          const out = fsWriteTool(parse(tokens.slice(1)));
+        if (isMutBuiltin(head, sub)) {
+          const out = await runBuiltin(cmd, parse);
           onEvent({ type: 'command', cmd, out });
           results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
           continue;

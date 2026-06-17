@@ -342,9 +342,10 @@ async function handle(req, res, ctx) {
   }
 
   if (path === '/api/chat' && req.method === 'POST') {
-    const { text } = await json(req);
+    const { text, mode } = await json(req);
     if (!text) return send(res, 400, { error: 'text required' });
     if (!hasLLM()) return send(res, 400, { error: 'No LLM configured.' });
+    const chatMode = ['ask', 'plan', 'agent'].includes(mode) ? mode : 'agent';
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
     const { chatTurn } = await import('./chat.js');
     const { saveConversation, newId } = await import('./conversations.js');
@@ -356,7 +357,7 @@ async function handle(req, res, ctx) {
     const emit = (ev) => { try { res.write(`data: ${JSON.stringify(ev)}\n\n`); } catch {} };
     // File writes / live sends are allowed only when Auto-approve is on for this session.
     const approve = async () => ctx.autoApprove === true;
-    try { await chatTurn(ctx.messages, text, { onEvent: emit, signal: ac.signal, approve }); }
+    try { await chatTurn(ctx.messages, text, { onEvent: emit, signal: ac.signal, approve, mode: chatMode }); }
     catch (e) { if (!ac.signal.aborted && e.name !== 'AbortError') emit({ type: 'error', message: e.message }); }
     finished = true;
     try { saveConversation(ctx.conversationId, ctx.messages); } catch {}

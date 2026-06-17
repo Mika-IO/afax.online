@@ -8,6 +8,17 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [0.5.0] — 2026-06-17
 
 ### Added
+- **Generic agent data + web tools (agnostic enrichment).** The chat agent gained
+  composable primitives so it can do arbitrary "pull a batch → inspect → mark"
+  jobs over the REAL database instead of inventing leads: `data query <coll>
+  --where f=v,f~sub,n>10 [--limit] [--fields]`, `data count`, `data get`,
+  `data set <coll> <id> <field> <value>` (approval-gated), and `fetch <url>`
+  (SSRF-guarded HTTP with status/redirect/title/text — works on the server, no
+  browser). (`src/chat.js`, `src/integrations/web.js` fetchPage)
+- **Ask / Plan / Agent modes.** A mode selector in the chat header: **Ask**
+  answers only (no commands), **Plan** investigates with read-only tools and
+  returns a numbered plan (no changes/sends), **Agent** executes. (`src/chat.js`,
+  `src/web.js`, panel)
 - **Database CRUD in the panel.** The Database view now creates, edits and
   deletes records inline — a **+ New** button and per-row Edit/✕ open a JSON
   editor modal (wired to the existing `POST/PUT/DELETE /api/data/:c[/:id]`).

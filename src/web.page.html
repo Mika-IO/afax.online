@@ -222,6 +222,10 @@
   .histpanel .hempty{padding:16px;color:var(--ink-3);font-size:13px;text-align:center}
   .cmd.denied{border-color:var(--amber)}.cmd.denied .ico{background:rgba(255,193,77,.13);color:var(--amber)}
   .apvbar{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .modeseg{display:inline-flex;background:var(--bg-3);border:1px solid var(--line-2);border-radius:10px;padding:3px;gap:2px}
+  .modeseg button{border:0;background:none;color:var(--ink-3);font:600 12.5px/1 var(--sans);padding:7px 13px;border-radius:8px;transition:.14s}
+  .modeseg button.on{background:var(--accent-soft);color:var(--accent-2);box-shadow:inset 0 0 0 1px var(--accent-line)}
+  .modeseg button:hover:not(.on){color:var(--ink-2)}
   .budgetbox{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
   .budgetbox label{font:600 11px/1 var(--mono);color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
   .budgetbox input{width:120px;background:var(--bg-3);border:1px solid var(--line-2);color:var(--ink);border-radius:9px;padding:8px 11px;font:inherit;font-size:13px}
@@ -260,6 +264,9 @@
     <section class="view on" id="v-chat">
       <div class="head"><div><h1>Chat</h1><p>Talk to your company in natural language — I run the commands.</p></div>
         <div class="chatctl">
+          <div class="modeseg" id="modeSeg" title="Ask = só responde · Plan = investiga e planeja · Agent = executa">
+            <button data-mode="ask">Ask</button><button data-mode="plan">Plan</button><button data-mode="agent" class="on">Agent</button>
+          </div>
           <label class="appr" title="Allow AFAX to write files and send live messages without asking each time"><input type="checkbox" id="autoApprove"> Auto-approve</label>
           <button class="btn" id="histBtn">History</button>
           <button class="btn pri" id="newChatBtn">New chat</button>
@@ -420,7 +427,11 @@ el("wsSel").onchange = function(){ api("/api/workspaces/use",{method:"POST",body
 el("wsNew").onclick = function(){ var n=prompt("New company name:"); if(!n) return; api("/api/workspaces",{method:"POST",body:JSON.stringify({name:n})}).then(function(){ location.reload(); }); };
 
 /* chat (real SSE) */
-var thread=el("thread"), ta=el("ta"), currentAbort=null, lastUser="";
+var thread=el("thread"), ta=el("ta"), currentAbort=null, lastUser="", chatMode="agent";
+try{ chatMode=localStorage.getItem("afax_mode")||"agent"; }catch(e){}
+function applyMode(){ document.querySelectorAll("#modeSeg [data-mode]").forEach(function(b){ b.classList.toggle("on",b.dataset.mode===chatMode); }); }
+el("modeSeg").addEventListener("click",function(e){ var b=e.target.closest("[data-mode]"); if(!b) return; chatMode=b.dataset.mode; try{ localStorage.setItem("afax_mode",chatMode); }catch(e){} applyMode(); toast(chatMode==="ask"?"Ask — só responde":chatMode==="plan"?"Plan — investiga e planeja, não executa":"Agent — executa"); });
+applyMode();
 function scroll(){ var w=el("chatwrap"); w.scrollTop = w.scrollHeight; }
 function welcome(){ thread.innerHTML = '<div class="msg afx"><div class="av afx">A</div><div class="bubble"><div class="who">AFAX</div><p>Hey. '+esc(STATE.business.name||STATE.workspace)+' is on '+(STATE.live?"<b>live</b>":"<b>dry-run</b>")+'. Tell me what to do, or tap a suggestion.</p></div></div>'; }
 function userMsg(t){ var d=document.createElement("div"); d.className="msg you"; d.innerHTML='<div class="av you">YOU</div><div class="bubble"><div class="who">You</div><div class="body"></div></div>'; d.querySelector(".body").textContent=t; thread.appendChild(d); scroll(); }
@@ -442,7 +453,7 @@ function send(text){
   var sayEl=shell.querySelector(".say"), stepsEl=shell.querySelector(".steps"), meterEl=shell.querySelector(".meter");
   sayEl.innerHTML='<div class="typing"><i></i><i></i><i></i></div>';
   currentAbort=new AbortController();
-  api("/api/chat",{method:"POST",body:JSON.stringify({text:text}),signal:currentAbort.signal}).then(function(res){
+  api("/api/chat",{method:"POST",body:JSON.stringify({text:text,mode:chatMode}),signal:currentAbort.signal}).then(function(res){
     var reader=res.body.getReader(), dec=new TextDecoder(), buf="";
     function pump(){ return reader.read().then(function(r){
       if(r.done){ setBusy(false); loadState(); return; }
