@@ -77,6 +77,7 @@ finance invoice --to "<who>" --amount N [--live] | finance report
 task add "<title>" [--detail "..."] | task list [--all] | task start|done|reopen|rm <id>
 schedule "<when>" --do "<cmd>" | schedule list|run|rm <id>
 export [--out f] | import <file> | connections | config show|get|set
+inbox   (list inbound messages received — emails/WhatsApp/Telegram replies that reached the server; check here when asked "did they reply?")
 deploy --src <dir> [--run "<cmd>"] [--live]`.trim();
 
 const ABOUT = `AFAX (Autonomous Force for Automation eXecution) is a zero-dependency CLI that runs an autonomous AI company: 8 agents (Prospect, Outreach, Marketing, Sales, Content, CRM, Automation, Finance) + an orchestrator with persistent memory, over local JSON data in ~/.afax. Outbound actions are dry-run unless BOTH gates are set: \`config set live true\` AND --live per command. It runs 24/7 on a VPS via \`afax schedule run\` in cron plus \`afax serve\` for inbound webhooks. Docs: https://afax.online/docs.html`;
@@ -154,6 +155,7 @@ function systemPrompt() {
     '- When the user names an email recipient (e.g. "email me at x@y.com"), use `email send --to <that exact address>`.',
     '  Use the address EXACTLY as given — never alter, guess, or substitute it, and never use `outreach` (that targets leads) for a one-off email.',
     '- To change the SENDER ("from") address, run `email from <addr>` (or `config set integrations.email.from <addr>`). Never say it can\'t be changed.',
+    '- When asked whether someone replied / about received messages, run `inbox` and report what is there. Do NOT claim you can\'t see received email. If inbox is empty, say so — and note replies only land if inbound email (MX + the /inbound/email webhook) is configured.',
     '',
     styleBlock(cfg),
     '(These language and style rules govern the "say" field.)',
