@@ -59,6 +59,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   budget input that writes `budget.monthly` (0 = unlimited) — no more CLI-only.
 
 ### Fixed
+- **Literal `\n` in sent emails.** The chat agent passes the body with backslash
+  escapes (it's a string inside a command inside JSON); `email send` now unescapes
+  `\n`/`\t`/`\r` so messages arrive with real line breaks. (`src/agents/mailer.js`)
+- **Approval UX.** A denied command card in the web chat now shows an
+  **"✓ Aprovar e reenviar"** button — turns on Auto-approve for the session and
+  re-sends the last message, instead of leaving the user to hunt for the toggle.
 - **Railway build.** Removed the Docker `VOLUME ["/data"]` instruction the
   Dockerfile carried — Railway's builder rejects it. Persistence now relies on a
   Railway Volume mounted at `/data` (`AFAX_HOME=/data` unchanged).
