@@ -24,7 +24,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync, statSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve, relative, join, extname } from 'node:path';
 import { load, save, activeProvider, hasLLM } from './config.js';
-import { read, add, update, remove, COLLECTIONS, AFAX_HOME } from './store.js';
+import { read, write, add, update, remove, cuid, COLLECTIONS, AFAX_HOME } from './store.js';
 import { snapshot } from './orchestrator.js';
 import { monthTotals, allTotals, budgetState } from './usage.js';
 import { c, header, ok, info, warn, err, log } from './logger.js';
@@ -433,6 +433,24 @@ async function handle(req, res, ctx) {
     return res.end(readFileSync(abs));
   }
 
+  // ---- bulk import: write many records in one shot (CSV migration, backfills) ----
+  // POST /api/data/:c/bulk { records:[...], mode:'append'|'replace' }
+  // Avoids one HTTP call + full-file rewrite per record. Records are normalized
+  // (id + createdAt filled in if missing). Must precede the generic data route.
+  const bulkMatch = path.match(/^\/api\/data\/([a-z_]+)\/bulk$/);
+  if (bulkMatch && req.method === 'POST') {
+    const name = bulkMatch[1];
+    if (!COLLECTIONS.includes(name)) return send(res, 404, { error: 'unknown collection' });
+    const body = await jsonBig(req);
+    const records = Array.isArray(body.records) ? body.records : null;
+    if (!records) return send(res, 400, { error: 'records array required' });
+    const now = new Date().toISOString();
+    const norm = records.map((r) => ({ ...r, id: r.id || cuid(), createdAt: r.createdAt || now }));
+    const existing = body.mode === 'replace' ? [] : read(name, []);
+    write(name, existing.concat(norm));
+    return send(res, 200, { ok: true, added: norm.length, total: existing.length + norm.length, mode: body.mode || 'append' });
+  }
+
   const dm = path.match(/^\/api\/data\/([a-z_]+)(?:\/([^/]+))?$/);
   if (dm) {
     const [, name, id] = dm;
@@ -492,6 +510,15 @@ function json(req) {
     req.on('data', (chunk) => { buf += chunk; if (buf.length > 5e6) req.destroy(); });
     req.on('end', () => { try { resolve(JSON.parse(buf || '{}')); } catch { resolve({}); } });
     req.on('error', reject);
+  });
+}
+// Larger-bodied JSON reader for bulk imports (up to 48 MB).
+function jsonBig(req) {
+  return new Promise((resolve) => {
+    let buf = '';
+    req.on('data', (chunk) => { buf += chunk; if (buf.length > 48e6) req.destroy(); });
+    req.on('end', () => { try { resolve(JSON.parse(buf || '{}')); } catch { resolve({}); } });
+    req.on('error', () => resolve({}));
   });
 }
 function send(res, code, obj) {
