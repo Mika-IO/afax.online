@@ -218,6 +218,10 @@
   .histpanel .hrow .hx:hover{color:var(--rose)}
   .histpanel .hempty{padding:16px;color:var(--ink-3);font-size:13px;text-align:center}
   .cmd.denied{border-color:var(--amber)}.cmd.denied .ico{background:rgba(255,193,77,.13);color:var(--amber)}
+  .budgetbox{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .budgetbox label{font:600 11px/1 var(--mono);color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+  .budgetbox input{width:120px;background:var(--bg-3);border:1px solid var(--line-2);color:var(--ink);border-radius:9px;padding:8px 11px;font:inherit;font-size:13px}
+  .budgetbox input:focus{outline:none;border-color:var(--accent-line)}
 </style>
 </head>
 <body>
@@ -320,7 +324,13 @@
     </section>
 
     <section class="view" id="v-usage">
-      <div class="head"><div><h1>Usage</h1><p>Token spend and cost this billing cycle.</p></div></div>
+      <div class="head"><div><h1>Usage</h1><p>Token spend and cost this billing cycle.</p></div>
+        <div class="budgetbox">
+          <label>Monthly budget (USD)</label>
+          <input id="budgetInput" type="number" min="0" step="1" placeholder="0 = unlimited">
+          <button class="btn pri" id="budgetSave">Save</button>
+        </div>
+      </div>
       <div class="body-pad">
         <div class="grid g4" id="usageStats"></div>
         <div class="grid g2" style="margin-top:16px">
@@ -566,6 +576,7 @@ function loadPipeline(){
 /* usage */
 function loadUsage(){
   j("/api/usage").then(function(u){
+    if(document.activeElement!==el("budgetInput")) el("budgetInput").value = u.budget.monthly>0 ? u.budget.monthly : "";
     el("usageStats").innerHTML=[
       ["Calls (all time)", u.all.calls],
       ["Tokens", tok((u.all.input||0)+(u.all.output||0))],
@@ -584,6 +595,7 @@ function loadUsage(){
       : '<p class="muted" style="padding:16px">No calls recorded yet.</p>';
   });
 }
+el("budgetSave").onclick=function(){ var v=Number(el("budgetInput").value)||0; if(v<0) v=0; api("/api/config",{method:"POST",body:JSON.stringify({path:"budget.monthly",value:v})}).then(function(){ toast(v>0?"Monthly budget set to "+money(v):"Budget removed (unlimited)"); loadUsage(); loadState(); }); };
 
 /* boot */
 Promise.all([loadState(), loadWorkspaces()]).then(function(){

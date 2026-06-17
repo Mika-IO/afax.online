@@ -42,8 +42,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Usage interaction history.** The Usage view now lists recent LLM calls
   (timestamp · provider · model · tokens · cost), and **Integrations** gained a
   **Test all connected** button (`POST /api/integrations/testall`).
+- **Editable monthly budget in the panel.** The Usage view header now has a
+  budget input that writes `budget.monthly` (0 = unlimited) — no more CLI-only.
 
 ### Fixed
+- **Railway build.** Removed the Docker `VOLUME ["/data"]` instruction the
+  Dockerfile carried — Railway's builder rejects it. Persistence now relies on a
+  Railway Volume mounted at `/data` (`AFAX_HOME=/data` unchanged).
 - **Stop now actually stops.** Pressing Stop in the web chat aborts between
   commands instead of letting the model keep reasoning/executing in the
   background. (`src/chat.js`)

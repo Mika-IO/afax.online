@@ -11,9 +11,11 @@ COPY bin ./bin
 COPY src ./src
 
 ENV NODE_ENV=production
-# Persist all company data (config, JSON collections, memory) on a mounted volume.
+# Persist all company data (config, JSON collections, memory) under /data.
+# Mount a persistent volume there. On Railway use a Railway Volume mounted at
+# /data — Railway rejects the Docker `VOLUME` instruction, so it's intentionally
+# omitted here (the directory is created at runtime regardless).
 ENV AFAX_HOME=/data
-VOLUME ["/data"]
 
 # The platform injects PORT; web.js binds 0.0.0.0 automatically when PORT is set.
 EXPOSE 8788
