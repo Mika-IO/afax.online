@@ -31,7 +31,7 @@ afax config set live true            # gate 1
 afax outreach --channel email --live # gate 2
 ```
 
-Check the header line of the command output — it states `dry-run`, `LIVE`, or the tell-tale `LIVE flag but config.live=false → dry-run`.
+Check the header line of the command output — it states `preparação (não envia)`, `LIVE`, or the tell-tale `--live mas config.live=false → não envia`. Prepared (unsent) items wait in `afax approvals`.
 
 ## Outreach
 

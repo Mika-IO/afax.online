@@ -291,9 +291,11 @@
     </section>
 
     <section class="view" id="v-tasks">
-      <div class="head"><div><h1>Tasks</h1><p>The shared work board — every plan and action becomes a trackable task.</p></div><button class="btn pri" id="newTaskBtn">+ New task</button></div>
+      <div class="head"><div><h1>Tasks</h1><p>Cada task é um objetivo. O worker prepara o trabalho real e deixa pronto pra sua aprovação — nada é enviado sozinho.</p></div><div style="display:flex;gap:8px"><button class="btn" id="runQueueBtn">▶ Rodar fila</button><button class="btn pri" id="newTaskBtn">+ New task</button></div></div>
       <div class="body-pad">
         <div class="grid g4" id="taskStats"></div>
+        <div class="sec-title">Aprovações · prontas pra enviar <span class="badge" id="apprCount" hidden>0</span></div>
+        <div id="approvals"><p class="muted" style="font-size:12px">Nada pendente.</p></div>
         <div class="sec-title">Automations · always on</div>
         <div class="grid g2" id="autos"></div>
         <div class="sec-title">Work board</div>
@@ -513,7 +515,7 @@ function loadTasks(){
     var rows=d.records||[]; var g={todo:[],doing:[],done:[]}; rows.forEach(function(t){ (g[t.status]||g.todo).push(t); });
     var open=g.todo.length+g.doing.length; var badge=el("taskBadge"); badge.hidden=!open; badge.textContent=open;
     el("taskStats").innerHTML=[["Open",open],["Doing",g.doing.length],["Done",g.done.length],["Total",rows.length]].map(function(s){ return '<div class="card stat-tile"><div class="k">'+s[0]+'</div><div class="v">'+s[1]+'</div></div>'; }).join("");
-    function col(k,label){ var items=g[k].map(function(t){ var nx=k==="todo"?"doing":k==="doing"?"done":"todo"; return '<div class="deal" style="margin-bottom:8px"><div class="co" '+(k==="done"?'style="text-decoration:line-through;color:var(--ink-3)"':'')+'>'+esc(t.title)+'</div><div class="ag" style="margin-top:9px;display:flex;gap:8px"><button class="btn" data-adv="'+t.id+'" data-nx="'+nx+'" style="padding:4px 9px;font-size:11px">→ '+nx+'</button><button class="btn" data-del="'+t.id+'" style="padding:4px 9px;font-size:11px">✕</button></div></div>'; }).join("")||'<p class="muted" style="font-size:12px">empty</p>'; return '<div class="col"><div class="ch">'+label+'<span class="ct">'+g[k].length+'</span></div>'+items+'</div>'; }
+    function col(k,label){ var items=g[k].map(function(t){ var nx=k==="todo"?"doing":k==="doing"?"done":"todo"; var rs=t.runState?'<div class="muted" style="font-size:11px;margin-top:3px">'+esc(rsLabel(t.runState))+(t.prepared?' · '+t.prepared+' p/ aprovar':'')+'</div>':''; return '<div class="deal" style="margin-bottom:8px"><div class="co" '+(k==="done"?'style="text-decoration:line-through;color:var(--ink-3)"':'')+'>'+esc(t.title)+'</div>'+rs+'<div class="ag" style="margin-top:9px;display:flex;gap:8px"><button class="btn" data-adv="'+t.id+'" data-nx="'+nx+'" style="padding:4px 9px;font-size:11px">→ '+nx+'</button><button class="btn" data-del="'+t.id+'" style="padding:4px 9px;font-size:11px">✕</button></div></div>'; }).join("")||'<p class="muted" style="font-size:12px">empty</p>'; return '<div class="col"><div class="ch">'+label+'<span class="ct">'+g[k].length+'</span></div>'+items+'</div>'; }
     el("board").innerHTML=col("todo","To do")+col("doing","Doing")+col("done","Done");
     document.querySelectorAll("#board [data-adv]").forEach(function(b){ b.onclick=function(){ api("/api/data/tasks/"+b.dataset.adv,{method:"PUT",body:JSON.stringify({status:b.dataset.nx})}).then(loadTasks); }; });
     document.querySelectorAll("#board [data-del]").forEach(function(b){ b.onclick=function(){ api("/api/data/tasks/"+b.dataset.del,{method:"DELETE"}).then(loadTasks); }; });
@@ -523,7 +525,19 @@ function loadTasks(){
     var rows=d.records||[];
     el("autos").innerHTML = rows.length ? rows.map(function(s){ return '<div class="card"><div class="agent-head"><div class="agent"><div class="ic">⏱</div><div><div class="nm">'+esc(s.when||s.cron||"schedule")+'</div><div class="ds">'+esc(s.do||s.cmd||"")+'</div></div></div><span class="pill sched"><span class="d"></span>scheduled</span></div></div>'; }).join("") : '<div class="card muted">No automations yet. Create one: <b>afax schedule "every day at 9am" --do "run --execute"</b></div>';
   }).catch(function(){ el("autos").innerHTML='<div class="card muted">—</div>'; });
+  loadApprovals();
 }
+function rsLabel(s){ return {queued:"na fila",running:"rodando…",awaiting_approval:"aguardando aprovação",done:"concluída",failed:"falhou"}[s]||s; }
+function loadApprovals(){
+  j("/api/approvals").then(function(d){
+    var items=d.items||[]; var badge=el("apprCount"); badge.hidden=!items.length; badge.textContent=items.length;
+    if(!items.length){ el("approvals").innerHTML='<p class="muted" style="font-size:12px">Nada pendente.</p>'; return; }
+    el("approvals").innerHTML=items.map(function(i){ return '<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><div style="font-weight:600;font-size:13px">'+esc(i.channel)+(i.to?' → '+esc(i.to):'')+'</div>'+(i.subject?'<div class="muted" style="font-size:12px">'+esc(i.subject)+'</div>':'')+'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(i.preview)+'</div></div><div style="display:flex;gap:6px;flex:none"><button class="btn pri" data-appr="'+i.id+'" style="padding:5px 11px;font-size:12px">Enviar</button><button class="btn" data-rej="'+i.id+'" style="padding:5px 11px;font-size:12px">Descartar</button></div></div></div>'; }).join("");
+    document.querySelectorAll("#approvals [data-appr]").forEach(function(b){ b.onclick=function(){ b.disabled=true; b.textContent="Enviando…"; api("/api/approvals/"+b.dataset.appr+"/approve",{method:"POST"}).then(function(r){ toast(r&&r.ok?("Enviado (recibo "+(r.receipt||"ok")+")"):("Falhou: "+((r&&r.error)||"?"))); loadTasks(); }); }; });
+    document.querySelectorAll("#approvals [data-rej]").forEach(function(b){ b.onclick=function(){ api("/api/approvals/"+b.dataset.rej+"/reject",{method:"POST"}).then(function(){ toast("Descartado"); loadApprovals(); }); }; });
+  });
+}
+el("runQueueBtn").onclick=function(){ var b=el("runQueueBtn"); b.disabled=true; b.textContent="Rodando…"; api("/api/work/run",{method:"POST"}).then(function(r){ b.disabled=false; b.textContent="▶ Rodar fila"; toast((r&&r.ran||0)+" task(s) processada(s)"); loadTasks(); }); };
 el("newTaskBtn").onclick=function(){ el("scrim").classList.add("on"); el("tk_goal").focus(); };
 el("closeModal").onclick=el("cancelModal").onclick=function(){ el("scrim").classList.remove("on"); };
 el("scrim").onclick=function(e){ if(e.target===el("scrim")) el("scrim").classList.remove("on"); };

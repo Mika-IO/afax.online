@@ -1,6 +1,7 @@
 // AFAX CLI — argument parsing, command routing, dispatch.
 import { load, save, configPath, isConfigured, activeProvider, hasLLM } from './config.js';
-import { read } from './store.js';
+import { read, write } from './store.js';
+import { sanitizeEmail } from './integrations/email.js';
 import { recall, forgetAll } from './memory.js';
 import { c, header, table, ok, info, warn, log, dim, banner } from './logger.js';
 
@@ -21,7 +22,7 @@ import * as context from './agents/context.js';
 import * as outreach from './agents/outreach.js';
 import * as deploy from './agents/deploy.js';
 
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 
 // ---- arg parsing -----------------------------------------------------------
 export function parse(argv) {
@@ -48,7 +49,7 @@ export function parse(argv) {
 }
 
 // ---- dispatch (reused by flows / scheduler / orchestrator) -----------------
-export async function dispatch(argv) {
+export async function dispatch(argv, ctx = {}) {
   const args = parse(argv);
   const cmd = args._.shift();
 
@@ -147,7 +148,7 @@ export async function dispatch(argv) {
       return zernio(args);
     }
     case 'outreach':
-      return args._[0] === 'preview' ? outreach.preview() : outreach.cmd(args);
+      return args._[0] === 'preview' ? outreach.preview() : outreach.cmd(args, ctx);
     case 'deploy':
       return deploy.cmd(args);
     case 'automation':
@@ -165,6 +166,16 @@ export async function dispatch(argv) {
       const { cmd: task } = await import('./agents/task.js');
       return task(args);
     }
+    case 'data':
+      return dataCmd(args);
+    case 'work': {
+      const { cmd: work } = await import('./worker.js');
+      return work(args);
+    }
+    case 'approvals':
+    case 'approve':
+    case 'reject':
+      return approvalsCmd(cmd, args);
     default:
       warn(`Unknown command: ${cmd}`);
       log(`Run ${c.cyan('afax help')} for the command list.`);
@@ -179,6 +190,63 @@ export async function run(argv) {
     log('');
   }
   return dispatch(argv);
+}
+
+// ---- data command ----------------------------------------------------------
+// `afax data clean` — one-shot hygiene over the ACTIVE workspace: strips junk
+// like "(unverified)" from stored emails so addresses are actually sendable.
+function dataCmd(args) {
+  const action = args._[0];
+  if (action !== 'clean') {
+    return warn('Usage: afax data clean   (sanitiza emails do workspace ativo)');
+  }
+  header('🧹 Data', 'Sanitizing emails in the active workspace');
+  let fixed = 0;
+  for (const coll of ['leads', 'contacts']) {
+    const list = read(coll, []);
+    let changed = false;
+    for (const rec of list) {
+      if (!rec || typeof rec.email !== 'string') continue;
+      const clean = sanitizeEmail(rec.email);
+      if (clean !== rec.email) {
+        rec.email = clean;
+        if ('verified' in rec) rec.verified = false;
+        fixed++;
+        changed = true;
+      }
+    }
+    if (changed) write(coll, list);
+  }
+  ok(`${fixed} email(s) sanitized.`);
+}
+
+// ---- approvals command -----------------------------------------------------
+// `afax approvals` lists prepared-but-unsent outbound. `afax approve <id>` does
+// the REAL send (human is the gate). `afax reject <id>` discards it.
+async function approvalsCmd(cmd, args) {
+  const { pending, approve, reject } = await import('./approvals.js');
+  if (cmd === 'approvals') {
+    const items = pending();
+    header('✅ Aprovações', `${items.length} item(s) preparado(s) — nada enviado ainda`);
+    if (!items.length) return info('Nada pendente.');
+    table(
+      ['ID', 'Tipo', 'Canal', 'Para', 'Prévia'],
+      items.map((i) => [i.id, i.type, i.channel, i.to || '—', (i.subject ? i.subject + ' · ' : '') + i.preview.slice(0, 40)])
+    );
+    log('');
+    info(`Enviar de verdade: ${c.cyan('afax approve <id>')}   ·   descartar: ${c.cyan('afax reject <id>')}`);
+    return;
+  }
+  const id = args._[0];
+  if (!id) return warn(`Usage: afax ${cmd} <id>  (veja os ids em afax approvals)`);
+  if (cmd === 'reject') {
+    const r = reject(id);
+    return r.ok ? ok(`Descartado ${id}.`) : warn(r.error);
+  }
+  // approve → real send
+  const r = await approve(id);
+  if (r.ok) ok(`Enviado de verdade ${id} (recibo ${r.receipt}).`);
+  else warn(`Falhou: ${r.error}`);
 }
 
 // ---- config command --------------------------------------------------------
@@ -302,10 +370,10 @@ function help() {
   row('self-update [--link]', 'Reinstall the CLI globally from local source (dev)');
   log('');
   log(c.bold('  AGENTS'));
-  row('🎯 prospect --target "<icp>" --limit <n>', 'AI-qualified lead profiles');
   row('🎯 prospect source <domain>', 'REAL contacts via Hunter.io');
-  row('📨 outreach --channel email [--live]', 'Personalized cold outreach (sends)');
-  row('🚀 marketing channel list', '16 acquisition channels');
+  row('🎯 prospect import leads.csv', 'Import REAL contacts from a CSV');
+  row('📨 outreach --channel email [--live]', 'Drafts cold outreach (for approval)');
+  row('🚀 marketing channel list', 'Acquisition channels AFAX runs');
   row('🚀 marketing campaign --channel <k> --goal "<g>"', 'Design a campaign');
   row('🚀 marketing publish --platform <p> [--live]', 'Post to FB/IG/Telegram/Slack…');
   row('🚀 marketing ads --goal "<g>" --budget <n>', 'Meta paid-ads campaign (paused)');
@@ -322,7 +390,9 @@ function help() {
   log('');
   log(c.bold('  AUTONOMY'));
   row('run [--execute]', 'Orchestrator plans & acts');
-  row('task add "<title>" | task list', 'Shared work board (todo → doing → done)');
+  row('task add "<goal>" | task list', 'Goals for the background worker');
+  row('work', 'Run the task queue: prepare work for approval');
+  row('approvals | approve <id> | reject <id>', 'Review & ship prepared outbound (real send)');
   row('schedule "<when>" --do "<cmd>"', 'NL recurring tasks (cron-ready)');
   row('cloud [--port 8788]', 'Always-on company: panel + inbound + autonomy (deploy this)');
   row('web [--port 8788] [--host H]', 'Web panel only (chat/integrations/db), token-auth');
@@ -331,7 +401,7 @@ function help() {
   row('memory', 'What the agents remember');
   row('usage [--recent]', 'LLM token spend + budget for this workspace');
   log('');
-  log('  ' + c.dim('Outbound is dry-run until: ') + c.cyan('afax config set live true'));
+  log('  ' + c.dim('Outbound is prepared for approval until: ') + c.cyan('afax config set live true') + c.dim(' (or approve it: ') + c.cyan('afax approve <id>') + c.dim(')'));
   log('');
   const llm = hasLLM() ? c.green('● ' + cfg.provider + '/' + activeProvider(cfg).model) : c.yellow('○ offline — run afax init');
   log('  ' + c.dim('LLM:') + ' ' + llm);

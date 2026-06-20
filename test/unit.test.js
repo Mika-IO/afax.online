@@ -10,6 +10,7 @@ process.env.AFAX_HOME = mkdtempSync(join(tmpdir(), 'afax-test-'));
 delete process.env.OPENAI_API_KEY;
 delete process.env.ANTHROPIC_API_KEY;
 delete process.env.AFAX_PROVIDER;
+delete process.env.AFAX_WORKSPACE;
 
 const { parse } = await import('../src/cli.js');
 const { parseJSON } = await import('../src/llm/index.js');
@@ -174,4 +175,40 @@ test('stripe: webhook signature verification', async () => {
   assert.ok(verifyStripe(payload, `t=${t},v1=${v1}`, secret));
   assert.ok(!verifyStripe(payload, `t=${t},v1=${'0'.repeat(64)}`, secret));
   assert.ok(!verifyStripe(payload, undefined, secret));
+});
+
+// --- 0.6.0 honesty invariants -------------------------------------------------
+
+test('sanitizeEmail strips "(unverified)" and junk', async () => {
+  const { sanitizeEmail } = await import('../src/integrations/email.js');
+  assert.equal(sanitizeEmail('a@b.com (unverified)'), 'a@b.com');
+  assert.equal(sanitizeEmail('  a@b.com  '), 'a@b.com');
+  assert.equal(sanitizeEmail('a@b.com (verified)'), 'a@b.com');
+  assert.equal(sanitizeEmail(''), '');
+});
+
+test('guarded: never reports a send it did not make (no-live = pending, not ok)', async () => {
+  const { dm } = await import('../src/integrations/registry.js');
+  const r = await dm({ platform: 'email', to: 'x@y.com', subject: 'hi', text: 'yo', live: false });
+  assert.equal(r.ok, false);
+  assert.equal(r.sent, false);
+  assert.equal(r.pending, true);
+  // The dishonest dry-run flag must be gone.
+  assert.equal('dryRun' in r, false);
+});
+
+test('approvals: pending surfaces drafted-but-unsent messages', async () => {
+  const { add } = await import('../src/store.js');
+  const { pending } = await import('../src/approvals.js');
+  add('messages', { channel: 'email', to: 'p@q.com', subject: 'S', body: 'B', pending: true, sent: false });
+  add('messages', { channel: 'email', to: 'done@q.com', subject: 'X', body: 'Y', pending: false, sent: true });
+  const ids = pending().map((p) => p.to);
+  assert.ok(ids.includes('p@q.com'));
+  assert.ok(!ids.includes('done@q.com'));
+});
+
+test('workModel: cheaper model for agent work', async () => {
+  const { workModel } = await import('../src/config.js');
+  const m = workModel();
+  assert.ok(typeof m === 'string' && m.length > 0);
 });

@@ -1,21 +1,8 @@
 # 🎯 Prospect — lead discovery & qualification
 
-The Prospect agent is your autonomous SDR's research half: it builds qualified lead lists matching your ICP, scores fit, and identifies buying signals. Every saved lead is mirrored into the [CRM](#/crm) automatically.
+The Prospect agent is your autonomous SDR's research half: it brings in **real** leads from real sources (Hunter.io or a CSV), mirrors each into the [CRM](#/crm), and scores fit.
 
-## AI-qualified lead profiles
-
-```bash
-afax prospect --target "solo SaaS founders" --limit 20
-```
-
-- `--target` — who you're hunting (defaults to the first positional argument).
-- `--limit` — how many leads (default 10, max 50).
-
-The agent uses your business profile + memory and returns structured leads: `name`, `title`, `company`, `industry`, `email`, `score` (0–100 fit vs your ICP), and `signal` (the buying/intent signal that qualifies them). Results are saved with `status: new` and ranked by score in the output table.
-
-> **Note:** AI-generated emails are plausible patterns (`first.last@company.com`) and are **flagged unverified** — the agent never fabricates real personal contact data. For real, verifiable contacts use `prospect source`.
-
-Without an LLM key the command still works, generating clearly-labeled template leads so you can exercise the pipeline.
+> **AFAX never invents leads.** There is no synthetic/AI-generated lead command — every lead comes from a verifiable source. Emails are sanitized on import so an address is always sendable.
 
 ## Real contacts via Hunter.io
 
@@ -55,8 +42,8 @@ Uses Hunter's Email Verifier to check deliverability before you burn sender repu
 ## Typical chains
 
 ```bash
-# Research → outreach
-afax prospect --target "indie hackers with paid products" --limit 10
+# Import → outreach
+afax prospect import leads.csv
 afax outreach --channel email --limit 5
 
 # Real contacts → verified outreach

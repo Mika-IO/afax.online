@@ -163,7 +163,7 @@ export async function inbound(msg) {
         { temperature: 0.6, maxTokens: 300 }
       );
       const sent = await registry.dm({ platform: msg.channel, to: msg.from, subject: msg.subject ? `Re: ${msg.subject}` : 'Re:', text: reply, live: true });
-      if (sent.ok && !sent.dryRun) {
+      if (sent.sent === true) {
         update('inbox', rec.id, { repliedAt: new Date().toISOString(), reply });
         replier.note(`Auto-replied to ${msg.from} on ${msg.channel}.`);
         ok(`Auto-replied on ${msg.channel} → ${msg.from}`);

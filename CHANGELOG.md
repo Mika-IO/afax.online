@@ -5,6 +5,56 @@ All notable changes to AFAX are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-06-20
+
+Theme: **make the promises real, and never fake them.** A background worker now
+turns tasks into prepared work; a human-approval queue replaces the dishonest
+"dry-run"; synthetic leads are gone; marketing channels actually do something.
+
+### Added
+- **Background task worker.** `afax work` (and the `afax cloud` heartbeat) drains
+  queued tasks: each task is a natural-language GOAL run through a new
+  goal-driven orchestrator (`executeGoal`), which picks real commands and runs
+  them. Read/prepare steps run for real; outbound steps are drafted for approval.
+  (`src/worker.js`, `src/orchestrator.js`)
+- **Approval queue.** `afax approvals` / `afax approve <id>` / `afax reject <id>`
+  and panel **Aprovações** inbox + **Rodar fila** button. Approve does the REAL
+  send, records the provider **receipt**, marks the lead `contacted` + CRM note —
+  only then. Routes `GET /api/approvals`, `POST /api/approvals/:id/approve|reject`,
+  `POST /api/work/run`. (`src/approvals.js`, `src/web.js`, `src/web.page.html`)
+- **`afax data clean`** — one-shot hygiene that strips junk like `(unverified)`
+  from stored emails so addresses are actually sendable. (`src/cli.js`)
+- **Tasks & Approvals docs** (`docs/tasks.md`).
+
+### Changed
+- **No more fake sends.** The outbound choke-point (`registry.guarded`) no longer
+  returns `{ok:true, dryRun:true}`. It's either a real send (`sent:true` + receipt)
+  or `pending:true, sent:false` (prepared, NOT sent). Every caller (outreach,
+  mailer, marketing publish, inbound auto-reply) reports honestly and never marks
+  `delivered`/`contacted` without a receipt. (`src/integrations/registry.js`,
+  `src/agents/outreach.js`, `src/agents/mailer.js`, `src/agents/marketing.js`,
+  `src/server.js`)
+- **Marketing channels are real.** Trimmed to the 8 channels AFAX actually runs
+  (content, seo, email, outreach, partnerships, pr, build-in-public, ppc).
+  `marketing channel <key> enable` now **schedules a real recurring action** via
+  the scheduler instead of flipping a cosmetic flag; channels needing product-side
+  mechanics (referral/affiliate/events/virality/…) were removed rather than faked.
+  (`src/agents/marketing.js`)
+- **Cheaper by default.** Agent WORK (drafting, prospect, orchestrator, the worker)
+  runs on a cheaper model (`workModel()` → gpt-5-mini / claude-haiku); interactive
+  chat keeps the full model. ~80% cost cut on background work. (`src/config.js`,
+  `src/agents/base.js`, `src/orchestrator.js`)
+- **Emails sanitized on write** (prospect/import/crm/mailer) so a recipient never
+  carries `(unverified)` again — the root cause of the Resend 422s.
+- Chat always answers after running tools (a guaranteed closing summary), and the
+  Stop signal now threads into agent loops so a running batch stops mid-send.
+
+### Removed
+- **Synthetic lead generation.** `prospect --target` (LLM-invented leads),
+  `templateLeads`, and the no-LLM "campaign stub" are gone. New leads come only
+  from `prospect source <domain>` (Hunter) or `prospect import <file.csv>`.
+  AFAX refuses to invent data. (`src/agents/prospect.js`, `src/agents/marketing.js`)
+
 ## [0.5.0] — 2026-06-17
 
 ### Added

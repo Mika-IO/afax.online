@@ -4,7 +4,7 @@
 
 AFAX is a **zero-dependency Node.js CLI** that runs an autonomous AI company from your terminal. It targets **solo founders of digital businesses** who need a whole back office — prospecting, cold outreach, campaign management, content production, CRM, operations and finance — without hiring a team.
 
-Eight specialized agents operate over **your data** and **your LLM keys**, coordinated by an orchestrator with persistent memory (with a Context step that ingests your company first). Install it on a laptop or a VPS and it works 24/7, delivering finished work to the CEO: you.
+Eight specialized agents operate over **your data** and **your LLM keys**, coordinated by an orchestrator with persistent memory (with a Context step that ingests your company first). Install it on a laptop or a VPS and it works 24/7, **preparing finished work for your approval** — nothing is sent on its own. You review the queue and ship it with one click.
 
 And you don't have to memorize commands: plain `afax` opens a **[natural-language chat](#/chat)** — describe what you want ("find 10 leads and draft outreach"), and AFAX runs the right commands for you, showing each one as it executes.
 

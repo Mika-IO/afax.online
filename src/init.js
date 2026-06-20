@@ -68,7 +68,7 @@ export async function init() {
     }
 
     log('');
-    info(`Try it:  ${c.cyan('afax status')}  ·  ${c.cyan('afax run')}  ·  ${c.cyan(`afax prospect --target "${cfg.business.icp || 'SaaS founders'}" --limit 10`)}`);
+    info(`Try it:  ${c.cyan('afax status')}  ·  ${c.cyan('afax run')}  ·  ${c.cyan('afax prospect source <domain>')}  ·  ${c.cyan('afax work')}`);
   } finally {
     rl.close();
   }

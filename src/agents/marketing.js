@@ -1,7 +1,10 @@
 // 🚀 Marketing — multichannel acquisition, campaigns, distribution.
 import { Agent } from './base.js';
-import { read, write, add } from '../store.js';
+import { read, write, add, remove } from '../store.js';
+import { load } from '../config.js';
 import { c, header, table, ok, info, warn, spin, step, log } from '../logger.js';
+
+const DAILY = 86400000, WEEKLY = 604800000;
 
 export const marketing = new Agent({
   key: 'marketing',
@@ -13,33 +16,28 @@ export const marketing = new Agent({
     'You are concrete: hooks, angles, cadence, CTA, and a measurable goal. You optimize for ROI and compounding loops.',
 });
 
-// The 16 acquisition channels from the AFAX spec.
+// The channels AFAX actually RUNS. Enabling one schedules a real, recurring
+// action (it produces approvable work — never an autonomous send). Each entry's
+// `job(cfg)` returns the cadence + the exact command the scheduler will run.
 const CHANNELS = [
-  ['seo', 'Search Engine Optimization', 'Organic indexing on Google'],
-  ['content', 'Content Marketing', 'High-value articles, video, guides'],
-  ['partnerships', 'Partnerships', 'B2B collabs sharing your ICP'],
-  ['outreach', 'Direct Outreach', 'Cold email + LinkedIn automation'],
-  ['events', 'In-person Events', 'Lead capture at conferences'],
-  ['ppc', 'Ads / PPC', 'Paid traffic for fast ROI'],
-  ['eng-marketing', 'Engineering as Marketing', 'Free micro-tools for top of funnel'],
-  ['marketplaces', 'Integrations & Marketplaces', 'App directories & extension stores'],
-  ['virality', 'Built-in Virality', 'Growth loops inside the product'],
-  ['affiliates', 'Affiliate Marketing', 'Commission for third-party promoters'],
-  ['referral', 'Referral Programs', 'In-app rewards for invites'],
-  ['build-in-public', 'Build in Public', 'Transparency to attract early adopters'],
-  ['communities', 'Niche Forum Launches', 'Product Hunt, HN, Reddit'],
-  ['email', 'Email Marketing', 'Nurture flows & newsletters'],
-  ['sponsorships', 'Niche Sponsorships', 'Micro-influencers & technical podcasts'],
-  ['pr', 'Unconventional PR', 'Data-driven earned media & backlinks'],
+  ['content', 'Content Marketing', 'Gera artigos de alto valor periodicamente', (cfg) => ({ when: 'weekly', every: WEEKLY, command: `content blog --topic "${cfg.business.offer || cfg.business.name || 'our product'}: guia prático"` })],
+  ['seo', 'SEO', 'Conteúdo otimizado pra busca, recorrente', (cfg) => ({ when: 'weekly', every: WEEKLY, command: `content blog --topic "como ${cfg.business.icp || 'clientes'} resolvem o problema que ${cfg.business.name || 'nós'} ataca"` })],
+  ['email', 'Email Marketing', 'Nurture/newsletter pros contatos', (cfg) => ({ when: 'weekly', every: WEEKLY, command: `content email --topic "novidade pra ${cfg.business.icp || 'nossos clientes'}"` })],
+  ['outreach', 'Direct Outreach', 'Lote diário de cold email (pra aprovar)', () => ({ when: 'daily', every: DAILY, command: 'outreach --channel email --limit 10' })],
+  ['partnerships', 'Partnerships', 'Outreach semanal pra parceiros (pra aprovar)', () => ({ when: 'weekly', every: WEEKLY, command: 'outreach --channel email --limit 5' })],
+  ['pr', 'PR / Earned Media', 'Estudo/dado pauta semanal pra imprensa', (cfg) => ({ when: 'weekly', every: WEEKLY, command: `content blog --topic "dados do setor de ${cfg.business.icp || 'nosso mercado'}"` })],
+  ['build-in-public', 'Build in Public', 'Post social recorrente de bastidores', (cfg) => ({ when: 'weekly', every: WEEKLY, command: `marketing publish --platform x --topic "build in public: ${cfg.business.name || 'nosso produto'}"` })],
+  ['ppc', 'Ads / PPC', 'Rascunha campanha Meta paga (pra revisar)', (cfg) => ({ when: 'weekly', every: WEEKLY, command: `marketing ads --goal "${cfg.business.offer || 'gerar leads'}" --budget 10` })],
 ];
+
+function channelDef(key) { return CHANNELS.find((ch) => ch[0] === key); }
 
 function channelState() {
   const saved = read('channels', []);
   const byKey = Object.fromEntries(saved.map((s) => [s.key, s]));
-  return CHANNELS.map(([key, name, desc]) => ({
-    key,
-    name,
-    desc,
+  return CHANNELS.map(([key, name, desc, job]) => ({
+    key, name, desc,
+    cadence: job(load()).when,
     status: byKey[key]?.status || 'idle',
   }));
 }
@@ -58,29 +56,42 @@ export async function cmd(args) {
 function channelCmd(args) {
   const action = args._[1];
   if (!action || action === 'list') {
-    header(`${marketing.emoji} Marketing`, 'Acquisition channels');
+    header(`${marketing.emoji} Marketing`, 'Canais de aquisição que o AFAX roda');
     table(
-      ['Channel', 'Key', 'Status', 'What it does'],
+      ['Channel', 'Key', 'Status', 'Cadência', 'O que faz'],
       channelState().map((ch) => [
         ch.name,
         c.dim(ch.key),
-        ch.status === 'active' ? c.green('● active') : c.dim('○ idle'),
+        ch.status === 'active' ? c.green('● ativo') : c.dim('○ parado'),
+        ch.cadence,
         ch.desc,
       ])
     );
     log('');
-    info(`Enable one: ${c.cyan('afax marketing channel seo enable')}`);
+    info(`Ativar (agenda ação real): ${c.cyan('afax marketing channel seo enable')}`);
     return;
   }
   const key = action;
   const verb = args._[2]; // enable | disable
-  const known = CHANNELS.find((ch) => ch[0] === key);
-  if (!known) return warn(`Unknown channel "${key}". Run: afax marketing channel list`);
-  const status = verb === 'disable' ? 'idle' : 'active';
+  const known = channelDef(key);
+  if (!known) return warn(`Canal "${key}" desconhecido. Veja: afax marketing channel list`);
+  const enabling = verb !== 'disable';
+
+  // The status toggle is just bookkeeping; the real work is the scheduled job.
   const saved = read('channels', []).filter((s) => s.key !== key);
-  saved.push({ key, status, updatedAt: new Date().toISOString() });
+  saved.push({ key, status: enabling ? 'active' : 'idle', updatedAt: new Date().toISOString() });
   write('channels', saved);
-  ok(`Channel ${c.bold(known[1])} → ${status === 'active' ? c.green(status) : c.dim(status)}`);
+
+  // Remove any existing job for this channel, then (re)create it if enabling.
+  for (const s of read('schedule', []).filter((x) => x.channel === key)) remove('schedule', s.id);
+  if (enabling) {
+    const j = known[3](load());
+    add('schedule', { channel: key, when: j.when, every: j.every, command: j.command, nextRun: Date.now(), runs: 0 });
+    ok(`Canal ${c.bold(known[1])} ${c.green('ativo')} — agendado (${j.when}): ${c.dim(j.command)}`);
+    info(`Roda no heartbeat do ${c.cyan('afax cloud')} (ou ${c.cyan('afax schedule run')}). Resultados caem em ${c.cyan('afax approvals')}.`);
+  } else {
+    ok(`Canal ${c.bold(known[1])} ${c.dim('parado')} — agendamento removido.`);
+  }
 }
 
 async function campaignCmd(args) {
@@ -89,19 +100,14 @@ async function campaignCmd(args) {
   const known = CHANNELS.find((ch) => ch[0] === channel);
   header(`${marketing.emoji} Marketing`, `Campaign · ${known?.[1] || channel}`);
 
-  let plan;
-  if (marketing.online) {
-    plan = await spin('Designing campaign', () =>
-      marketing.structured(
-        `Design a ${known?.[1] || channel} campaign. Goal: "${goal}".\n` +
-          `Return JSON: {"name","hook","angle","audience","cadence","assets":["..."],"cta","kpi","steps":["..."]}`,
-        { maxTokens: 1600 }
-      )
-    );
-  } else {
-    info('No LLM — saving campaign stub. Run ' + c.cyan('afax init') + ' for AI plans.');
-    plan = { name: `${channel} campaign`, hook: goal, angle: '', cadence: '', cta: '', kpi: '', steps: [] };
-  }
+  if (!marketing.online) return warn('Campanha precisa de um LLM pra planejar. Rode ' + c.cyan('afax init') + '.');
+  const plan = await spin('Designing campaign', () =>
+    marketing.structured(
+      `Design a ${known?.[1] || channel} campaign. Goal: "${goal}".\n` +
+        `Return JSON: {"name","hook","angle","audience","cadence","assets":["..."],"cta","kpi","steps":["..."]}`,
+      { maxTokens: 1600 }
+    )
+  );
 
   const rec = add('campaigns', { channel, goal, ...plan, status: 'draft' });
   marketing.note(`Drafted campaign "${plan.name}" on ${channel} (goal: ${goal}).`);
@@ -153,15 +159,15 @@ async function publishCmd(args) {
   const { publish } = await import('../integrations/registry.js');
   const res = await publish({ platform, message, imageUrl, link: args.link, live });
 
-  add('posts', { platform, message, dryRun: res.dryRun, delivered: res.ok && !res.dryRun, error: res.error || '' });
-  marketing.note(`Publish ${platform} (live=${res.ok && !res.dryRun}).`);
+  add('posts', { platform, message, pending: !!res.pending, sent: res.sent === true, delivered: res.sent === true, error: res.error || '' });
+  marketing.note(`Publish ${platform} (sent=${res.sent === true}).`);
 
   log('');
   log(message.split('\n').map((l) => '  ' + l).join('\n'));
   log('');
-  if (res.dryRun) {
-    info(`Dry-run. Go live: ${c.cyan('afax config set live true')} then add ${c.cyan('--live')}.`);
-  } else if (res.ok) {
+  if (res.pending) {
+    info(`Preparado — ${c.bold('nada foi publicado')}. Pra publicar: ${c.cyan('afax config set live true')} e ${c.cyan('--live')}.`);
+  } else if (res.sent) {
     ok(`Published to ${platform}.`);
   } else {
     warn(`Publish failed: ${res.error}`);

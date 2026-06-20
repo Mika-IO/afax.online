@@ -106,6 +106,15 @@ export function activeProvider(cfg = load()) {
   return { name, ...block };
 }
 
+// Cheaper model for high-volume agent WORK (drafting, prospect, orchestrator,
+// segmentation, the background worker). The full `model` stays for interactive
+// chat. Override per provider with providers.<name>.workModel.
+const WORK_MODELS = { openai: 'gpt-5-mini', anthropic: 'claude-haiku-4-5-20251001', ollama: null };
+export function workModel(cfg = load()) {
+  const p = activeProvider(cfg);
+  return p.workModel || WORK_MODELS[p.name] || p.model;
+}
+
 export function hasLLM(cfg = load()) {
   const p = activeProvider(cfg);
   return p.name === 'ollama' || !!p.apiKey;

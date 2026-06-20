@@ -157,6 +157,10 @@ function startHeartbeat() {
     try {
       const { dispatch } = await import('./cli.js');
       await dispatch(['schedule', 'run']);
+      // Drain the task queue too: queued goals get prepared into the approval
+      // inbox so they're ready when the CEO next looks — without ever sending.
+      const { drain } = await import('./worker.js');
+      await drain({ quiet: true });
     } catch (e) {
       warn(`Heartbeat: ${e.message}`);
     }
@@ -260,6 +264,27 @@ async function handle(req, res, ctx) {
       collections: COLLECTIONS, snapshot: snapshot(),
       usage: { month: monthTotals(), all: allTotals(), budget: budgetState(cfg) },
     });
+  }
+
+  // ---- approval queue (prepared-but-unsent outbound) ----
+  if (path === '/api/approvals' && req.method === 'GET') {
+    const { pending } = await import('./approvals.js');
+    return send(res, 200, { items: pending() });
+  }
+  {
+    const am = path.match(/^\/api\/approvals\/([^/]+)\/(approve|reject)$/);
+    if (am && req.method === 'POST') {
+      const [, id, action] = am;
+      const { approve, reject } = await import('./approvals.js');
+      const r = action === 'approve' ? await approve(id) : reject(id);
+      return send(res, r.ok ? 200 : 400, r);
+    }
+  }
+  // ---- run the task queue now (prepare goals into the approval inbox) ----
+  if (path === '/api/work/run' && req.method === 'POST') {
+    const { drain } = await import('./worker.js');
+    const r = await drain({ quiet: true });
+    return send(res, 200, r);
   }
 
   // ---- workspaces (companies) ----

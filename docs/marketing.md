@@ -2,34 +2,28 @@
 
 The Marketing agent is a growth strategist: it manages your acquisition channel portfolio, designs concrete channel-specific campaigns, and publishes to real platforms.
 
-## The 16 acquisition channels
+## Acquisition channels AFAX actually runs
+
+These are the channels AFAX can operate on its own. **Enabling a channel is not a cosmetic toggle** — it schedules a real, recurring action (via the [scheduler](#/scheduler)) that produces approvable work. Channels that need product-side mechanics (referral/affiliate rewards, in-person events, in-product virality) are intentionally **not** here: AFAX won't pretend to run what it can't.
 
 ```bash
 afax marketing channel list
-afax marketing channel seo enable
-afax marketing channel ppc disable
+afax marketing channel seo enable     # schedules a real recurring job
+afax marketing channel outreach disable
 ```
 
-| Key | Channel |
-| --- | --- |
-| `seo` | Search Engine Optimization |
-| `content` | Content Marketing |
-| `partnerships` | Partnerships |
-| `outreach` | Direct Outreach |
-| `events` | In-person Events |
-| `ppc` | Ads / PPC |
-| `eng-marketing` | Engineering as Marketing |
-| `marketplaces` | Integrations & Marketplaces |
-| `virality` | Built-in Virality |
-| `affiliates` | Affiliate Marketing |
-| `referral` | Referral Programs |
-| `build-in-public` | Build in Public |
-| `communities` | Niche Forum Launches (PH, HN, Reddit) |
-| `email` | Email Marketing |
-| `sponsorships` | Niche Sponsorships |
-| `pr` | Unconventional PR |
+| Key | Channel | Cadence | Recurring action it schedules |
+| --- | --- | --- | --- |
+| `content` | Content Marketing | weekly | drafts a high-value article |
+| `seo` | SEO | weekly | drafts SEO-targeted content |
+| `email` | Email Marketing | weekly | drafts a nurture/newsletter email |
+| `outreach` | Direct Outreach | daily | drafts a batch of cold emails (for approval) |
+| `partnerships` | Partnerships | weekly | drafts partner outreach (for approval) |
+| `pr` | PR / Earned Media | weekly | drafts a data-led press angle |
+| `build-in-public` | Build in Public | weekly | drafts a social post |
+| `ppc` | Ads / PPC | weekly | drafts a PAUSED Meta campaign to review |
 
-Channel status (`active`/`idle`) feeds the [status dashboard](#/orchestrator) and gives the orchestrator a picture of where you're playing.
+The scheduled jobs run on the `afax cloud` heartbeat (or `afax schedule run`). Everything they produce lands as a **draft** — outbound items wait in [`afax approvals`](#/tasks); nothing is sent until you approve. Channel status (`active`/`idle`) also feeds the [status dashboard](#/orchestrator).
 
 ## Campaign design
 
@@ -63,7 +57,7 @@ afax marketing publish --platform instagram --topic "launch" \
 | `--link` | link attachment (Facebook) |
 | `--live` | real publish (needs global `live` too — see [Safety](#/integrations)) |
 
-Without `--live` (or with global `live` off) the post is rendered in the terminal as a dry-run and saved to the `posts` collection — nothing is published.
+Without `--live` (or with global `live` off) the post is **drafted** and saved to the `posts` collection as `pending` — nothing is published. Approve it later with [`afax approve <id>`](#/tasks). AFAX never reports a send it didn't actually make.
 
 > **Note:** A **local** image path works too — with [`afax serve`](#/server) running and `publicUrl` set, AFAX hosts the file and uses the public URL automatically (this is how generated images reach Instagram in one command).
 

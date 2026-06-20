@@ -26,7 +26,7 @@ What happens:
 The action menu the orchestrator may use (verbatim, with concrete arguments):
 
 ```text
-prospect --target "<icp>" --limit <n>
+prospect source <domain> --limit <n>
 marketing channel <key> enable
 marketing campaign --channel <key> --goal "<goal>"
 content blog|email|post --topic "<topic>"

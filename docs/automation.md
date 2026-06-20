@@ -64,7 +64,7 @@ afax schedule "every day at 08:00" --do "automation flow run welcome"
 ```bash
 # Morning routine: report + fresh leads + a content piece
 afax automation flow add "morning" --trigger "daily" --steps \
-  "finance report; prospect --target 'solo SaaS founders' --limit 5; content post --topic 'daily build update'"
+  "finance report; prospect source acme.com --limit 5; content post --topic 'daily build update'"
 
 # Reactivation push
 afax automation flow add "reactivate" --trigger "stale lead" --steps \

@@ -20,7 +20,7 @@ const agent = new Agent({
 });
 
 // afax outreach --channel email [--limit 10] [--status new] [--live]
-export async function cmd(args) {
+export async function cmd(args, { signal } = {}) {
   const channel = args.channel || 'email';
   const limit = Math.min(parseInt(args.limit || '5', 10) || 5, 50);
   const live = !!args.live;
@@ -29,13 +29,14 @@ export async function cmd(args) {
     .filter((l) => (args.status ? l.status === args.status : l.status !== 'contacted'))
     .slice(0, limit);
 
-  header(`${agent.emoji} Outreach`, `${channel} · ${leads.length} lead(s) · ${live ? (isLive() ? c.green('LIVE') : c.yellow('LIVE flag but config.live=false → dry-run')) : c.dim('dry-run')}`);
+  header(`${agent.emoji} Outreach`, `${channel} · ${leads.length} lead(s) · ${live ? (isLive() ? c.green('LIVE') : c.yellow('--live mas config.live=false → não envia')) : c.dim('preparação (não envia)')}`);
 
-  if (!leads.length) return info('No leads to contact. Run: afax prospect --target "..." or afax leads source <domain>');
+  if (!leads.length) return info('No leads to contact. Run: afax prospect source <domain>  or  afax prospect import leads.csv');
   if (!agent.online) return warn('Outreach needs an LLM to personalize. Run: afax init');
 
   const results = [];
   for (const lead of leads) {
+    if (signal?.aborted) { warn('Interrompido pelo usuário.'); break; }
     const drafted = await spin(`Writing → ${lead.name} @ ${lead.company}`, () =>
       draft(agent, lead, channel)
     );
@@ -54,12 +55,13 @@ export async function cmd(args) {
       to: target,
       subject: drafted.subject || '',
       body: drafted.body,
-      dryRun: sent.dryRun,
-      delivered: sent.ok && !sent.dryRun,
+      pending: !!sent.pending,
+      sent: sent.sent === true,
+      delivered: sent.sent === true,
       error: sent.error || '',
     });
-    // Mark contacted only on a real send.
-    if (sent.ok && !sent.dryRun) {
+    // Mark contacted only on a real send (a receipt exists).
+    if (sent.sent === true) {
       const all = read('leads', []);
       const i = all.findIndex((x) => x.id === lead.id);
       if (i >= 0) { all[i].status = 'contacted'; write('leads', all); }
@@ -73,10 +75,10 @@ export async function cmd(args) {
   table(['Lead', 'Company', 'Subject', 'Status'], results);
   log('');
   if (!(live && isLive())) {
-    info(`Dry-run. To actually send: ${c.cyan('afax config set live true')} then ${c.cyan('afax outreach --channel ' + channel + ' --live')}`);
-    dim('  Preview the latest drafts: afax outreach preview');
+    info(`Preparado — ${c.bold('nada foi enviado')}. Pra enviar de verdade: ${c.cyan('afax config set live true')} e ${c.cyan('afax outreach --channel ' + channel + ' --live')}`);
+    dim('  Ver os rascunhos: afax outreach preview');
   } else {
-    ok('Outreach sent.');
+    ok('Outreach enviado.');
   }
 }
 
@@ -105,9 +107,9 @@ async function draft(agent, lead, channel) {
 }
 
 function verdict(sent) {
-  if (sent.dryRun) return c.dim('dry-run');
-  if (sent.ok) return c.green('sent');
-  return c.red('fail: ' + (sent.error || '').slice(0, 24));
+  if (sent.pending) return c.yellow('pendente (não enviado)');
+  if (sent.sent) return c.green('enviado');
+  return c.red('falha: ' + (sent.error || '').slice(0, 24));
 }
 
 export const outreach = agent;

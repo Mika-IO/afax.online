@@ -10,7 +10,16 @@ export function status() {
   return { connected: ready, driver: e.driver, from: e.from || '(no from)' };
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// Strip junk that pollutes a stored address (e.g. a literal "(unverified)" tag
+// an LLM appended) so the bare, sendable address survives. Returns '' if empty.
+export function sanitizeEmail(raw) {
+  return String(raw || '')
+    .replace(/\s*\((?:un)?verified\)\s*/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 // send({ to, subject, text, html }) -> { id } | throws
 export async function send({ to, subject, text, html }) {
