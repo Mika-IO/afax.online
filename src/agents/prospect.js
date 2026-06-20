@@ -1,6 +1,7 @@
 // 🎯 Prospect — lead discovery, enrichment, qualification.
 import { Agent } from './base.js';
 import { read, write, add } from '../store.js';
+import { sanitizeEmail } from '../integrations/email.js';
 import { c, header, table, ok, info, warn, spin, dim, log } from '../logger.js';
 
 export const prospect = new Agent({
@@ -14,66 +15,20 @@ export const prospect = new Agent({
     'You never fabricate real personal contact details — emails follow a plausible business pattern (first.last@company.com) and are flagged as unverified.',
 });
 
-// afax prospect --target "SaaS founders" --limit 20   (AI-synthesized profiles)
-// afax prospect source <domain> [--limit 10]           (REAL contacts via Hunter.io)
+// afax prospect source <domain> [--limit 10]   (REAL contacts via Hunter.io)
+// afax prospect import <file.csv>               (REAL contacts from a CSV)
+// afax prospect verify <email>                  (Hunter deliverability check)
 export async function cmd(args) {
   if (args._[0] === 'source') return sourceReal(args);
   if (args._[0] === 'verify') return verifyEmail(args);
   if (args._[0] === 'import') return importLeads(args);
-  const target = args.target || args._[0];
-  const limit = Math.min(parseInt(args.limit || '10', 10) || 10, 50);
-  if (!target) {
-    warn('Usage: afax prospect --target "SaaS founders" --limit 20  |  afax prospect source acme.com');
-    return;
-  }
 
-  header(`${prospect.emoji} Prospect`, `Sourcing ${limit} leads for: ${target}`);
-
-  let leads;
-  if (prospect.online) {
-    leads = await spin('Researching & qualifying', () =>
-      prospect.structured(
-        `Generate ${limit} qualified B2B leads matching: "${target}".\n` +
-          `Return JSON: {"leads":[{"name","title","company","industry","email","score","signal"}]}\n` +
-          `- score: 0-100 fit score vs the ICP\n- signal: the buying/intent signal that qualifies them\n- email: plausible pattern, mark unverified`,
-        { maxTokens: 2200 }
-      ).then((r) => r.leads || [])
-    );
-  } else {
-    info('No LLM configured — generating template leads. Run ' + c.cyan('afax init') + ' to enable AI.');
-    leads = templateLeads(target, limit);
-  }
-
-  const saved = [];
-  for (const l of leads) {
-    const rec = add('leads', {
-      ...l,
-      target,
-      status: 'new',
-      verified: false,
-    });
-    // Mirror into CRM as a contact.
-    upsertContact(rec);
-    saved.push(rec);
-  }
-  prospect.note(`Sourced ${saved.length} leads for "${target}".`);
-  const { emit } = await import('../events.js');
-  if (saved.length) await emit('lead.new', { count: saved.length, target, email: saved[0]?.email || '', name: saved[0]?.name || '' });
-
-  table(
-    ['Score', 'Name', 'Title', 'Company', 'Signal'],
-    saved
-      .sort((a, b) => (b.score || 0) - (a.score || 0))
-      .map((l) => [
-        scoreBadge(l.score),
-        l.name,
-        l.title,
-        l.company,
-        truncate(l.signal, 32),
-      ])
-  );
-  console.log('');
-  ok(`${saved.length} leads saved → CRM. Next: ${c.cyan('afax sales pipeline')} or ${c.cyan('afax content email --topic outreach')}`);
+  // Synthetic lead generation was removed on purpose: AFAX never invents
+  // contacts. Every lead must come from a real source.
+  warn('AFAX não inventa leads. Use uma fonte real:');
+  info(`  ${c.cyan('afax prospect source acme.com')}   — contatos reais via Hunter.io`);
+  info(`  ${c.cyan('afax prospect import leads.csv')}   — importa um CSV (LinkedIn/Apollo/scraper)`);
+  info(`  ${c.cyan('afax prospect verify name@acme.com')} — checa entregabilidade`);
 }
 
 // Real, verifiable contacts pulled from Hunter.io for a company domain.
@@ -88,7 +43,7 @@ async function sourceReal(args) {
   header(`${prospect.emoji} Prospect`, `Real contacts @ ${domain}`);
   const found = await spin('Querying Hunter.io', () => leadsApi.domainSearch({ domain, limit }));
   const saved = found.map((l) => {
-    const rec = add('leads', { ...l, target: domain, status: 'new' });
+    const rec = add('leads', { ...l, email: sanitizeEmail(l.email), target: domain, status: 'new' });
     upsertContact(rec);
     return rec;
   });
@@ -128,8 +83,9 @@ async function importLeads(args) {
   const existing = new Set(read('leads', []).map((l) => l.email).filter(Boolean));
   const saved = [];
   for (const l of rows) {
-    if (l.email && existing.has(l.email)) continue;
-    const rec = add('leads', { ...l, target: 'import', status: 'new', verified: false });
+    const email = sanitizeEmail(l.email);
+    if (email && existing.has(email)) continue;
+    const rec = add('leads', { ...l, email, target: 'import', status: 'new', verified: false });
     upsertContact(rec);
     saved.push(rec);
   }
@@ -140,12 +96,13 @@ async function importLeads(args) {
 }
 
 function upsertContact(lead) {
+  const email = sanitizeEmail(lead.email);
   const contacts = read('contacts', []);
-  if (contacts.find((x) => x.email === lead.email)) return;
+  if (contacts.find((x) => x.email === email)) return;
   contacts.push({
     id: lead.id,
     name: lead.name,
-    email: lead.email,
+    email,
     company: lead.company,
     title: lead.title,
     stage: 'lead',
@@ -163,22 +120,4 @@ function scoreBadge(s) {
   return c.dim(String(s));
 }
 
-function templateLeads(target, n) {
-  const out = [];
-  for (let i = 1; i <= n; i++) {
-    const co = `${capitalize(target.split(' ')[0] || 'Acme')}Co${i}`;
-    out.push({
-      name: `Lead ${i}`,
-      title: target.replace(/s$/, ''),
-      company: co,
-      industry: 'B2B SaaS',
-      email: `contact${i}@${co.toLowerCase()}.com`,
-      score: 70 - i,
-      signal: 'Template lead — enable AI for real qualification',
-    });
-  }
-  return out;
-}
-
 const truncate = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + '…' : s || '');
-const capitalize = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);

@@ -36,7 +36,7 @@ export async function cmd(args) {
   }
   if (sub && sub !== 'send') return warn('Usage: afax email send --to <addr> --subject "..." --body "..." [--live]  |  afax email from <addr>  |  afax email status');
 
-  const to = String(args.to || args._[1] || '').trim();
+  const to = email.sanitizeEmail(args.to || args._[1] || '');
   const subject = unescape(String(args.subject || 'Hello').trim());
   const text = unescape(String(args.body || args.text || args.message || '').trim());
 
@@ -54,13 +54,13 @@ export async function cmd(args) {
   header('✉️  Email', `${st.driver} · ${st.from} → ${to}`);
   const res = await dm({ platform: 'email', to, subject, text, live: !!args.live });
 
-  if (res.dryRun) {
-    info(`Dry-run — not sent. Recipient: ${c.bold(to)} · subject: "${subject}"`);
+  if (res.pending) {
+    info(`Preparado — ${c.bold('não enviado')}. Destinatário: ${c.bold(to)} · assunto: "${subject}"`);
     log('  ' + c.dim(text.slice(0, 200)));
-    info(`To actually send: add ${c.cyan('--live')} ${isLive() ? '' : 'and ' + c.cyan('afax config set live true')}`.trim());
+    info(`Pra enviar de verdade: ${c.cyan('--live')} ${isLive() ? '' : 'e ' + c.cyan('afax config set live true')}`.trim());
     return;
   }
-  if (!res.ok) {
+  if (!res.sent) {
     warn(`Send failed: ${res.error}`);
     return;
   }

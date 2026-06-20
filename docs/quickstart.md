@@ -21,7 +21,7 @@ AFAX fetches your homepage (plus `/about`, `/pricing`, `/product` when they exis
 ## 3. Source and qualify leads
 
 ```bash
-afax prospect --target "solo SaaS founders" --limit 10
+afax prospect source acme.com --limit 10
 ```
 
 The Prospect agent generates qualified lead profiles with fit scores (0–100) and buying signals, and mirrors each one into the CRM.
@@ -88,7 +88,7 @@ Skip memorizing commands — plain `afax` opens a conversational session that ru
 ```text
 $ afax
 ❯ source 10 leads for dental clinics and draft cold emails for the best 5
-⏺ afax prospect --target "dental clinics" --limit 10
+⏺ afax prospect source dentalclinic.com
 ⏺ afax outreach --channel email --limit 5
 ● Done — 10 leads scored and saved, 5 personalized drafts ready (dry-run)…
 ```

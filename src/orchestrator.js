@@ -1,7 +1,7 @@
 // The orchestrator — coordinates the 8 agents, holds the state picture,
 // proposes the highest-value next actions, and (optionally) executes them.
 import { chat } from './llm/index.js';
-import { load, hasLLM } from './config.js';
+import { load, hasLLM, workModel } from './config.js';
 import { read } from './store.js';
 import { recall, remember } from './memory.js';
 import { tokenize } from './agents/automation.js';
@@ -49,7 +49,7 @@ export function status() {
     [
       ['🎯 Prospect', 'Leads sourced', s.leads],
       ['🤝 CRM', 'Contacts', s.contacts],
-      ['🚀 Marketing', 'Active channels', `${s.activeChannels}/16`],
+      ['🚀 Marketing', 'Active channels', `${s.activeChannels} ativo(s)`],
       ['🚀 Marketing', 'Campaigns', s.campaigns],
       ['✍️ Content', 'Pieces', s.content],
       ['💰 Sales', 'Open deals', s.openDeals],
@@ -124,9 +124,74 @@ export async function run(args) {
   ok('Run complete.');
 }
 
+// Goal-driven execution: given an explicit objective (a task), decide the real
+// commands that advance it and run them — WITHOUT --live, so any outbound step
+// is drafted into the approval queue, never sent. Cancellable via `signal`.
+// Returns { reasoning, log:[{command, ok, error?}] }.
+export async function executeGoal(goal, { signal, max = 5 } = {}) {
+  if (!hasLLM()) throw new Error('No LLM configured (afax init).');
+  const cfg = load();
+  const s = snapshot();
+  const stateText = Object.entries(s).map(([k, v]) => `${k}: ${v}`).join(', ');
+  const plan = await decideGoal(goal, stateText, cfg);
+  const log = [];
+  const { dispatch } = await import('./cli.js');
+  const actions = (plan.actions || []).slice(0, max);
+  for (const a of actions) {
+    if (signal?.aborted) break;
+    try {
+      await dispatch(tokenize(a.command), { signal });
+      log.push({ command: a.command, ok: true });
+    } catch (e) {
+      log.push({ command: a.command, ok: false, error: e.message });
+    }
+  }
+  return { reasoning: plan.reasoning || '', log };
+}
+
+async function decideGoal(goal, stateText, cfg) {
+  const tools = [
+    'prospect source <domain> --limit <n>   (real contacts via Hunter)',
+    'prospect import <file.csv>             (real contacts from a CSV)',
+    'outreach --channel email --limit <n>   (drafts cold emails for approval — never sends)',
+    'content blog|email|post --topic "<topic>"',
+    'marketing campaign --channel <key> --goal "<goal>"',
+    'marketing publish --platform x|telegram|... --message "<text>"  (drafts a post for approval)',
+    'sales pipeline --deal "<name>" --value <n>',
+    'sales followup --deal "<name>"',
+    'crm contact add "<email>"',
+    'data query <collection> --where f=v,f~sub --limit <n>   (segment the REAL db)',
+    'finance report',
+  ];
+  const { json } = await chat({
+    system:
+      'You are the AFAX orchestrator executing one explicit GOAL for the company. Pick the 1-5 real commands that ' +
+      'directly accomplish it. Use ONLY the available commands verbatim with concrete arguments drawn from the goal and state. ' +
+      'NEVER invent leads or data — only real sources. Outbound steps are drafted for human approval, not sent. ' +
+      'Respond JSON: {"reasoning":"<1 sentence>","actions":[{"command":"<exact afax subcommand>","why":"<short>"}]}\n\n' +
+      styleBlock(cfg) + '\n(The "reasoning" and "why" fields follow these language/style rules; commands stay literal.)',
+    messages: [
+      {
+        role: 'user',
+        content:
+          `Business: ${cfg.business.name || 'unnamed'} | ICP: ${cfg.business.icp || 'unknown'} | Offer: ${cfg.business.offer || 'unknown'}\n` +
+          `GOAL: ${goal}\n` +
+          `State: ${stateText}\n` +
+          `Available commands (use exactly, no "afax" prefix):\n- ${tools.join('\n- ')}`,
+      },
+    ],
+    json: true,
+    temperature: 0.4,
+    maxTokens: 600,
+    model: workModel(),
+  });
+  return json;
+}
+
 async function decide(stateText, mem, cfg) {
   const tools = [
-    'prospect --target "<icp>" --limit <n>',
+    'prospect source <domain> --limit <n>   (real contacts via Hunter)',
+    'outreach --channel email --limit <n>    (drafts cold emails for approval)',
     'marketing channel <key> enable',
     'marketing campaign --channel <key> --goal "<goal>"',
     'content blog|email|post --topic "<topic>"',
@@ -154,6 +219,7 @@ async function decide(stateText, mem, cfg) {
     json: true,
     temperature: 0.5,
     maxTokens: 700,
+    model: workModel(),
   });
   return json;
 }

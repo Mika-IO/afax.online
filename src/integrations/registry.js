@@ -37,44 +37,56 @@ export function connections() {
 
 /**
  * Publish a one-to-many post to a social platform.
- * @returns { ok, dryRun, result?, error? }
+ * @returns { ok, sent, pending?, result?, error? }
  */
 export async function publish({ platform, message, imageUrl, link, live }) {
-  return guarded(live, platform, async () => {
-    switch (platform) {
-      case 'facebook': return meta.facebookPost({ message, link });
-      case 'instagram': return meta.instagramPublish({ imageUrl, caption: message });
-      case 'telegram': return messaging.telegramSend({ text: message });
-      case 'slack': return messaging.slackSend({ text: message });
-      case 'discord': return messaging.discordSend({ text: message });
-      case 'x': case 'twitter': return x.post({ text: message });
-      default: throw new Error(`Unknown publish platform "${platform}".`);
-    }
-  });
+  return guarded(live, platform, () => deliverPublish({ platform, message, imageUrl, link }));
 }
 
 /**
  * Send a 1:1 direct message (outreach).
  */
 export async function dm({ platform, to, subject, text, live }) {
-  return guarded(live, `${platform}→${to}`, async () => {
-    switch (platform) {
-      case 'email': return email.send({ to, subject: subject || 'Hello', text });
-      case 'whatsapp': return meta.whatsappSend({ to, text });
-      case 'telegram': return messaging.telegramSend({ text, chatId: to });
-      default: throw new Error(`Unknown dm platform "${platform}".`);
-    }
-  });
+  return guarded(live, `${platform}→${to}`, () => deliverDm({ platform, to, subject, text }));
 }
 
-// The single choke-point that decides dry-run vs real send.
+// --- ungated delivery -------------------------------------------------------
+// The REAL send, with no dry-run gate. Only the human-approval path (an explicit
+// approve action) and the gated wrappers above may call these. Returns the
+// provider result (receipt) or throws.
+export async function deliverDm({ platform, to, subject, text }) {
+  switch (platform) {
+    case 'email': return email.send({ to, subject: subject || 'Hello', text });
+    case 'whatsapp': return meta.whatsappSend({ to, text });
+    case 'telegram': return messaging.telegramSend({ text, chatId: to });
+    default: throw new Error(`Unknown dm platform "${platform}".`);
+  }
+}
+
+export async function deliverPublish({ platform, message, imageUrl, link }) {
+  switch (platform) {
+    case 'facebook': return meta.facebookPost({ message, link });
+    case 'instagram': return meta.instagramPublish({ imageUrl, caption: message });
+    case 'telegram': return messaging.telegramSend({ text: message });
+    case 'slack': return messaging.slackSend({ text: message });
+    case 'discord': return messaging.discordSend({ text: message });
+    case 'x': case 'twitter': return x.post({ text: message });
+    default: throw new Error(`Unknown publish platform "${platform}".`);
+  }
+}
+
+// The single choke-point that decides real-send vs hold-for-approval.
+// HONESTY CONTRACT: never report success without a real send.
+//   - not live  → { ok:false, sent:false, pending:true }  (prepared, NOT sent)
+//   - real send → { ok:true,  sent:true,  result }        (receipt attached)
+//   - failure   → { ok:false, sent:false, error }
 async function guarded(live, label, fn) {
   const go = live && isLive();
-  if (!go) return { ok: true, dryRun: true, label };
+  if (!go) return { ok: false, sent: false, pending: true, label };
   try {
     const result = await fn();
-    return { ok: true, dryRun: false, label, result };
+    return { ok: true, sent: true, label, result };
   } catch (error) {
-    return { ok: false, dryRun: false, label, error: error.message };
+    return { ok: false, sent: false, label, error: error.message };
   }
 }

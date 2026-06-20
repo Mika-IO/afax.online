@@ -6,7 +6,7 @@ Natural-language recurring tasks, Hermes-style. AFAX stores schedules per worksp
 
 ```bash
 afax schedule "every day at 09:00" --do "run --execute"
-afax schedule "every 2 hours"      --do "prospect --target 'SaaS founders' --limit 5"
+afax schedule "every 2 hours"      --do "prospect source acme.com --limit 5"
 afax schedule "weekly"             --do "finance report"
 afax schedule "every 30 min"       --do "schedule run"      # (don't actually do this one)
 ```

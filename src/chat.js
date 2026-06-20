@@ -7,7 +7,7 @@ import { stdin, stdout } from 'node:process';
 import { existsSync, statSync, readFileSync, readdirSync, writeFileSync, appendFileSync, mkdirSync, rmSync, renameSync } from 'node:fs';
 import { resolve, join, relative, basename, dirname } from 'node:path';
 import { chat as llm } from './llm/index.js';
-import { load, hasLLM, activeProvider } from './config.js';
+import { load, hasLLM, activeProvider, workModel } from './config.js';
 import { snapshot } from './orchestrator.js';
 import { read, update, COLLECTIONS } from './store.js';
 import { fetchPage } from './integrations/web.js';
@@ -67,7 +67,7 @@ const COMMANDS = `
 status | run [--execute --steps N] | memory [clear] | usage [--recent]
 context ingest <url> | context show | context set <field> <value>
 workspace list|create|use|current
-prospect --target "<icp>" --limit N | prospect source <domain> | prospect verify <email> | prospect import <file.csv>
+prospect source <domain> | prospect verify <email> | prospect import <file.csv>
 outreach --channel email|whatsapp|telegram --limit N [--live] | outreach preview
 marketing channel list | marketing channel <key> enable|disable
 marketing campaign --channel <key> --goal "<g>" | marketing campaigns
@@ -160,7 +160,7 @@ function systemPrompt(mode = 'agent') {
     '- ENRICH/SEGMENT over the existing DB — never invent leads for that. Pattern: `data query <coll> --where ... --limit N` to pull a real',
     '  batch → for each, inspect with `fetch <url>` (e.g. site/blog, /wp-admin, last post, wa.me) → `data set <coll> <id> <field> <value>` to mark it.',
     '  Example "segment leads with no order software and wa.me in bio": data query leads --where has_software=nao --fields name,website,instagram --limit 50, then check each, then data set. Process in batches if the list is large.',
-    '- `prospect --target` GENERATES brand-new SYNTHETIC leads (AI-invented, flagged "(unverified)") and writes them to the DB. ONLY use it when the user explicitly asks to GENERATE/source NEW prospects. NEVER use prospect to "segment", "check", "look at" or work with leads we ALREADY have — that pollutes the real data. For existing leads, ALWAYS use `data query`. (`prospect source <domain>` = real contacts via Hunter, that\'s fine.)',
+    '- NEVER invent leads. AFAX has no synthetic-lead command — new leads come ONLY from `prospect source <domain>` (real Hunter contacts) or `prospect import <file.csv>`. To "segment", "check" or work with leads we ALREADY have, ALWAYS use `data query` — never try to (re)generate them.',
     '',
     'KNOW YOUR LIMITS — be honest, never stall or pad:',
     '- A channel marked "not set" above is NOT usable. If a request needs it, say so and help connect it:',
@@ -375,9 +375,8 @@ export function needsApproval(cmd) {
   const tokens = tokenize(cmd);
   if (isMutBuiltin(tokens[0], tokens[1])) return true;
   if (tokens[0] === 'mcp' && tokens[1] === 'call') return true; // external side effects
-  // Synthetic lead generation (`prospect --target`) writes AI-invented leads into
-  // the DB and has polluted real data — require approval. The real-data forms
-  // (source/verify/import) are fine.
+  // Only the real-data prospect forms exist (source/verify/import). Anything else
+  // under `prospect` is unknown — gate it behind approval.
   if (tokens[0] === 'prospect' && !['source', 'verify', 'import'].includes(tokens[1])) return true;
   if (tokens.includes('--live')) return true;
   return false;
@@ -556,13 +555,13 @@ async function browserTool(args) {
 }
 
 // Run one dispatched command while capturing its terminal output (for the model).
-async function execCapture(command) {
+async function execCapture(command, signal) {
   const { dispatch } = await import('./cli.js');
   const orig = console.log;
   let buf = '';
   console.log = (...a) => { buf += a.map(String).join(' ') + '\n'; orig(...a); };
   try {
-    await dispatch(tokenize(command));
+    await dispatch(tokenize(command), { signal });
   } catch (e) {
     buf += `Error: ${e.message}\n`;
     warn(`Command failed: ${e.message}`);
@@ -723,6 +722,7 @@ export async function chatTurn(messages, userText, { onEvent = () => {}, signal,
   const approver = approve || (async () => false);
   const sys = () => systemPrompt(mode);
   let final = '';
+  let ranAny = false;
   for (let hop = 0; hop <= MAX_ACTIONS_PER_TURN; hop++) {
     if (signal?.aborted) break;
     let json;
@@ -750,6 +750,7 @@ export async function chatTurn(messages, userText, { onEvent = () => {}, signal,
     messages.push({ role: 'assistant', content: JSON.stringify(json) });
     onEvent({ type: 'say', text: say, usage });
     if (!run.length || hop === MAX_ACTIONS_PER_TURN) { final = say; break; }
+    ranAny = true;
 
     let results = '';
     for (const cmd of run) {
@@ -797,11 +798,25 @@ export async function chatTurn(messages, userText, { onEvent = () => {}, signal,
         results += `[${cmd}] ${out}\n`;
         continue;
       }
-      const out = await execCapture(cmd);
+      const out = await execCapture(cmd, signal);
       onEvent({ type: 'command', cmd, out });
       results += `[output of \`${cmd}\`]\n${out || '(no output)'}\n`;
     }
     messages.push({ role: 'user', content: results + '\nContinue: more commands if needed, then answer the user in "say".' });
+  }
+  // Never go silent after doing work: if the loop ended without a closing
+  // message, ask once for a short summary so the user always gets a reply.
+  if (ranAny && !final.trim() && !signal?.aborted) {
+    try {
+      const r = await llm({
+        system: sys(),
+        messages: [...messages.slice(-MAX_HISTORY), { role: 'user', content: 'Resuma em 1-3 frases o que foi feito e o próximo passo. Texto puro.' }],
+        json: false, temperature: 0.3, maxTokens: 300, model: workModel(),
+      });
+      final = (r.text || '').trim();
+    } catch {}
+    if (!final.trim()) final = 'Feito. Rode `afax approvals` pra revisar o que ficou pronto.';
+    onEvent({ type: 'say', text: final });
   }
   onEvent({ type: 'done', final });
   return final;

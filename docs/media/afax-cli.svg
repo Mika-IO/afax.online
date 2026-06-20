@@ -24,7 +24,7 @@
   <text x="26" y="326"><tspan class="o">❯ </tspan><tspan class="t">how are we doing? source 10 leads for dental clinics and draft outreach</tspan></text>
 
   <text x="40" y="358" class="d">⏺ afax status</text>
-  <text x="40" y="385" class="d">⏺ afax prospect --target "dental clinics" --limit 10</text>
+  <text x="40" y="385" class="d">⏺ afax prospect source dentalclinic.com</text>
   <text x="40" y="412" class="d">⏺ afax outreach --channel email --limit 5</text>
 
   <text x="26" y="458"><tspan class="o">● </tspan><tspan class="t">Pipeline is $12,000 across 2 deals, MRR $99. I sourced and scored 10</tspan></text>

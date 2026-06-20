@@ -6,7 +6,7 @@ Every command, flag and default in one page. All commands work as `afax <cmd>` (
 
 - `--flag value` and `--flag=value` are equivalent; a `--flag` with no value is boolean `true`.
 - Quotes work like a shell everywhere — including inside flow steps and `--do` strings.
-- Outbound commands are dry-run unless **both** global `live` and per-command `--live` are set.
+- Outbound commands prepare a draft (never sent) unless **both** global `live` and per-command `--live` are set — or you approve it with `afax approve <id>`. AFAX never reports a send it didn't actually make.
 
 ## Talk (natural language)
 
@@ -62,7 +62,7 @@ Every command, flag and default in one page. All commands work as `afax <cmd>` (
 
 | Command | Description |
 | --- | --- |
-| `afax prospect --target "<icp>" [--limit N]` | AI-qualified lead profiles (default 10, max 50) |
+| `afax prospect source <domain> [--limit N]` | REAL contacts via Hunter.io |
 | `afax prospect source <domain> [--limit N]` | Real contacts via Hunter.io / Apollo |
 | `afax prospect verify <email>` | Email deliverability check (Hunter) |
 | `afax prospect import <file.csv>` | Import LinkedIn/Apollo/generic CSV exports |
@@ -78,7 +78,7 @@ Every command, flag and default in one page. All commands work as `afax <cmd>` (
 
 | Command | Description |
 | --- | --- |
-| `afax marketing channel list` | The 16 acquisition channels |
+| `afax marketing channel list` | Acquisition channels AFAX runs (enable = real recurring action) |
 | `afax marketing channel <key> enable\|disable` | Toggle a channel |
 | `afax marketing campaign --channel <key> --goal "<g>"` | AI campaign design |
 | `afax marketing campaigns` | List saved campaigns |

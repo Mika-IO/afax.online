@@ -62,7 +62,7 @@ afax config set autonomy execute
 afax schedule "every day at 09:00" --do "run --execute"
 
 # fresh leads twice a day
-afax schedule "every 12 hours" --do "prospect --target 'solo SaaS founders' --limit 5"
+afax schedule "every 12 hours" --do "prospect source acme.com --limit 5"
 
 # evening report to the CEO's Telegram
 afax schedule "every day at 18:00" \

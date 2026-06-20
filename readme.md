@@ -23,7 +23,7 @@ You don't memorize commands. Plain `afax` opens a **natural-language session** �
 ```text
 ❯ source 10 leads for dental clinics and draft cold emails
 
-⏺ afax prospect --target "dental clinics" --limit 10
+⏺ afax prospect source dentalclinic.com
 ⏺ afax outreach --channel email --limit 10
 
 ● Sourced & scored 10 dental-clinic leads and drafted 10 personalized
@@ -51,7 +51,7 @@ No global install? `node bin/afax.js <command>` works identically. Prefer a UI? 
 
 | Agent | What it does | Try it |
 | --- | --- | --- |
-| 🎯 **Prospect** | Lead discovery & qualification — AI profiles with fit scores, or **real contacts** via Hunter.io | `afax prospect --target "SaaS founders"` |
+| 🎯 **Prospect** | Lead discovery & qualification — real contacts via Hunter.io or CSV import | `afax prospect source acme.com` |
 | 📨 **Outreach** | Personalized cold messages per lead (email/WhatsApp/Telegram), dry-run by default, auto-logged to CRM | `afax outreach --channel email` |
 | 🚀 **Marketing** | 16 acquisition channels, AI campaign design, real multichannel publishing & paid ads | `afax marketing campaign --channel email --goal "activate trials"` |
 | ✍️ **Content** | Blog, email, social, ads, landing copy + **real image generation** | `afax content blog --topic "automation ROI"` |

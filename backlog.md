@@ -30,4 +30,18 @@
 
 ## Aberto
 
-_(vazio)_
+(nada aberto)
+
+## Done — 0.6.0 (2026-06-20)
+
+- [x] **Chat sem resposta final depois de rodar tools.** `chatTurn` agora garante uma mensagem de fechamento: se o loop termina sem `say`, faz 1 chamada curta de resumo ("o que foi feito + próximo passo") e sempre emite. (`src/chat.js`)
+
+- [x] **"Nada funciona, gasta crédito sem valor."** Resolvido na raiz, não só relatório:
+    - **Custo:** trabalho dos agentes migrou pra gpt-5-mini (`workModel()`), ~80% mais barato; drafting caiu de ~$0.03 → ~$0.0008/email. (`src/config.js`, `src/agents/base.js`, `src/orchestrator.js`)
+    - **Não funcionava de verdade:** worker de background (`afax work` + heartbeat) + fila de aprovação real; tasks viram trabalho preparado. (`src/worker.js`, `src/approvals.js`)
+    - **Mentia sucesso:** acabou o dry-run que retornava `ok` sem enviar — agora é `sent`+recibo OU `pending` (não enviado). (`src/integrations/registry.js` + callers)
+    - **Email quebrado (422):** sanitização de email na escrita + `afax data clean`. (`src/agents/prospect.js`, `src/cli.js`)
+    - **Dados sintéticos:** `prospect --target`/`templateLeads`/campaign-stub removidos. (`src/agents/prospect.js`, `src/agents/marketing.js`)
+    - **Channels cosméticos:** 8 channels reais que agendam ação recorrente de verdade. (`src/agents/marketing.js`)
+    - **Stop não parava:** signal threaded até o loop dos agentes. (`src/cli.js`, `src/chat.js`, `src/agents/outreach.js`)
+    - Landing + docs alinhadas à realidade (`index.html`, `docs/introduction.md`, `docs/marketing.md`, `docs/tasks.md`). 
