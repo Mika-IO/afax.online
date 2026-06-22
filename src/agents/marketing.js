@@ -1,6 +1,6 @@
 // 🚀 Marketing — multichannel acquisition, campaigns, distribution.
 import { Agent } from './base.js';
-import { read, write, add, update, remove } from '../store.js';
+import { read, write, add, update, remove, find } from '../store.js';
 import { load } from '../config.js';
 import { c, header, table, ok, info, warn, spin, step, log } from '../logger.js';
 
@@ -94,37 +94,81 @@ function channelCmd(args) {
   }
 }
 
+// A campaign is an EXECUTED multi-touch sequence, not a static plan: one LLM
+// call designs N reusable templates, then each touch is scheduled to draft real
+// outreach (into the approval queue) on its day. Optional A/B subject on touch 1.
 async function campaignCmd(args) {
+  if (args._[1] === 'send') return campaignSend(args);
+  if (args._[1] === 'report') return campaignReport(args);
   const channel = args.channel || 'email';
   const goal = args.goal || args.topic || 'drive qualified signups';
-  const known = CHANNELS.find((ch) => ch[0] === channel);
-  header(`${marketing.emoji} Marketing`, `Campaign · ${known?.[1] || channel}`);
+  const steps = Math.min(parseInt(args.steps || '3', 10) || 3, 6);
+  const days = args.days ? String(args.days).split(',').map((n) => parseInt(n, 10) || 0) : defaultDays(steps);
+  const segment = args.where || args.segment || '';
+  const limit = Math.min(parseInt(args.limit || '50', 10) || 50, 1000);
+  const ab = !!args.ab;
+  header(`${marketing.emoji} Marketing`, `Campaign · ${channel} · ${steps} touches${ab ? ' · A/B' : ''}`);
+  if (!marketing.online) return warn('Campanha precisa de LLM. Rode ' + c.cyan('afax init') + '.');
 
-  if (!marketing.online) return warn('Campanha precisa de um LLM pra planejar. Rode ' + c.cyan('afax init') + '.');
-  const plan = await spin('Designing campaign', () =>
+  const j = await spin('Designing the sequence (1 call)', () =>
     marketing.structured(
-      `Design a ${known?.[1] || channel} campaign. Goal: "${goal}".\n` +
-        `Return JSON: {"name","hook","angle","audience","cadence","assets":["..."],"cta","kpi","steps":["..."]}`,
-      { maxTokens: 1600 }
+      `Design a ${steps}-touch cold ${channel} SEQUENCE for: "${goal}". Each touch is a reusable TEMPLATE using merge vars ` +
+        `{{first_name}}, {{company}}, {{signal}} and light {spintax}. The touches escalate: intro → value → proof/objection → soft ask. ` +
+        (ab ? 'Also provide an alternative A/B subject line for touch 1. ' : '') +
+        `Return JSON: {"name","touches":[{"subject":"<under 7 words>","body":"<under 90 words>"}],"abSubjectB":"<alt subject for touch 1, or empty>"}`,
+      { maxTokens: 1800 }
     )
   );
+  const touches = (j.touches || []).slice(0, steps);
+  if (!touches.length) return warn('A IA não retornou touches. Tente de novo.');
+  const rec = add('campaigns', { channel, goal, name: j.name || goal, segment, limit, status: 'scheduled', touches, abSubjectB: ab ? (j.abSubjectB || '') : '' });
 
-  const rec = add('campaigns', { channel, goal, ...plan, status: 'draft' });
-  marketing.note(`Drafted campaign "${plan.name}" on ${channel} (goal: ${goal}).`);
-
-  step(plan.name || 'Campaign');
-  if (plan.hook) log('  ' + c.bold('Hook:   ') + plan.hook);
-  if (plan.angle) log('  ' + c.bold('Angle:  ') + plan.angle);
-  if (plan.audience) log('  ' + c.bold('Who:    ') + plan.audience);
-  if (plan.cadence) log('  ' + c.bold('Cadence:') + ' ' + plan.cadence);
-  if (plan.cta) log('  ' + c.bold('CTA:    ') + plan.cta);
-  if (plan.kpi) log('  ' + c.bold('KPI:    ') + plan.kpi);
-  if (plan.steps?.length) {
-    log('');
-    plan.steps.forEach((s, i) => log(`  ${c.orange(i + 1 + '.')} ${s}`));
-  }
+  const now = Date.now();
+  touches.forEach((t, i) => {
+    add('schedule', { command: `marketing campaign send ${rec.id} ${i}`, when: `day ${days[i] ?? i * 3}`, nextRun: now + (days[i] ?? i * 3) * DAILY, runs: 0, source: 'campaign', campaignId: rec.id });
+  });
+  marketing.note(`Scheduled campaign "${rec.name}" — ${touches.length} touches on days ${days.slice(0, touches.length).join(',')}.`);
+  step(rec.name);
+  touches.forEach((t, i) => log(`  ${c.orange('day ' + (days[i] ?? i * 3))}  ${c.bold(t.subject)}${i === 0 && ab ? c.dim('  (A/B: "' + rec.abSubjectB + '")') : ''}`));
   log('');
-  ok(`Saved campaign ${c.dim(rec.id)}. List all: ${c.cyan('afax marketing campaigns')}`);
+  ok(`Campaign ${c.dim(rec.id)} agendada${segment ? ` p/ segmento "${segment}"` : ''}. Roda no ${c.cyan('afax cloud')} heartbeat → rascunhos em ${c.cyan('afax approvals')}. Resultados: ${c.cyan('afax marketing campaign report ' + rec.id)}.`);
+}
+
+const defaultDays = (n) => Array.from({ length: n }, (_, i) => i * 3); // 0,3,6,9…
+
+// Run one touch of a campaign — drafts outreach using that touch's template.
+async function campaignSend(args) {
+  const id = args._[2];
+  const i = parseInt(args._[3] || '0', 10) || 0;
+  const camp = find('campaigns', (x) => x.id === id);
+  if (!camp) return warn(`No campaign "${id}".`);
+  const t = camp.touches?.[i];
+  if (!t) return warn(`Campaign ${id} has no touch ${i}.`);
+  const { cmd: outreachCmd } = await import('./outreach.js');
+  const oargs = { channel: camp.channel || 'email', template: t.body, subject: t.subject, campaign: id, limit: String(camp.limit || 50), _: [] };
+  if (camp.segment) oargs.where = camp.segment;
+  if (i === 0 && camp.abSubjectB) { oargs['template-b'] = t.body; oargs['subject-b'] = camp.abSubjectB; } // A/B subject, same body
+  await outreachCmd(oargs);
+}
+
+// Per-variant performance → declare the A/B winner.
+async function campaignReport(args) {
+  const id = args._[2];
+  if (!id) return warn('Usage: afax marketing campaign report <id>');
+  const { emailStats } = await import('../metrics.js');
+  const msgs = read('messages', []).filter((m) => m.campaignId === id);
+  header(`${marketing.emoji} Marketing`, `Campaign report · ${id}`);
+  if (!msgs.length) return info('Sem envios dessa campanha ainda.');
+  const overall = emailStats(msgs);
+  log(`  ${c.bold('Geral:')} ${overall.sent} enviados · open ${overall.openRate}% · reply ${overall.replyRate}%`);
+  const variants = [...new Set(msgs.map((m) => m.variant).filter(Boolean))].sort();
+  if (variants.length > 1) {
+    log('');
+    const rows = variants.map((v) => { const s = emailStats(msgs.filter((m) => m.variant === v)); return { v, s }; });
+    table(['Variant', 'Sent', 'Open%', 'Reply%'], rows.map((r) => [r.v, r.s.sent, r.s.openRate, r.s.replyRate]));
+    const win = rows.slice().sort((a, b) => (b.s.replyRate - a.s.replyRate) || (b.s.openRate - a.s.openRate))[0];
+    ok(`Vencedor: variante ${c.bold(win.v)} (reply ${win.s.replyRate}%, open ${win.s.openRate}%).`);
+  }
 }
 
 // afax marketing publish --platform facebook|instagram|telegram|slack|discord --message "..." [--image url] [--live]

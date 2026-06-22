@@ -60,6 +60,10 @@ export async function cmd(args, { signal } = {}) {
     return warn('Sem LLM: passe um template com ' + c.cyan('--template "Oi {{first_name}}, ..." --subject "..."') + ' ou rode ' + c.cyan('afax init') + '.');
   }
 
+  // Optional A/B: a second template alternated per lead over the SAME audience,
+  // tagged variant A/B so metrics can pick the winner.
+  const tplB = args['template-b'] ? { subject: String(args['subject-b'] || tpl.subject), body: String(args['template-b']) } : null;
+
   // 2) Optional: one batched call to write a per-lead icebreaker line.
   let lines = [];
   if (personalize && agent.online) {
@@ -76,14 +80,19 @@ export async function cmd(args, { signal } = {}) {
     if (signal?.aborted) { warn('Interrompido pelo usuário.'); break; }
     const lead = leads[i];
     const extra = { icebreaker: lines[i] || '' };
-    const subject = renderForLead(tpl.subject, lead, extra);
+    const useB = tplB && i % 2 === 1;
+    const t = useB ? tplB : tpl;
+    const variant = tplB ? (useB ? 'B' : 'A') : (args.variant ? String(args.variant) : undefined);
+    const subject = renderForLead(t.subject, lead, extra);
     const target = channel === 'email' ? lead.email : lead.phone || lead.email;
-    let body = renderForLead(tpl.body, lead, extra);
+    let body = renderForLead(t.body, lead, extra);
     if (channel === 'email') body = withFooter(body, target);   // compliant unsubscribe
 
     const sent = await registry.dm({ platform: channel, to: target, subject, text: body, live });
     newMessages.push({
       leadId: lead.id, channel, to: target, subject: subject || '', body,
+      ...(args.campaign ? { campaignId: String(args.campaign) } : {}),
+      ...(variant ? { variant } : {}),
       pending: !!sent.pending, sent: sent.sent === true, delivered: sent.sent === true,
       receipt: sent.sent === true ? (sent.result?.id || 'ok') : undefined, error: sent.error || '',
     });
