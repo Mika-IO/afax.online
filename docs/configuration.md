@@ -48,6 +48,21 @@ afax config set providers.openai.baseUrl https://api.groq.com/openai/v1
 
 Default model: `gpt-4o`, default baseUrl: `https://api.openai.com/v1`.
 
+### OpenRouter (one key, hundreds of models)
+
+A first-class provider — paste an `sk-or-…` key and `afax connect paste` routes it
+automatically (and switches the active provider if none was set):
+
+```bash
+export OPENROUTER_API_KEY=sk-or-v1-...     # or: afax connect openrouter
+afax config set provider openrouter
+afax config set providers.openrouter.model anthropic/claude-3.5-sonnet   # any OpenRouter model id
+```
+
+Default model: `openai/gpt-4o-mini`, baseUrl: `https://openrouter.ai/api/v1`. Work
+(agent) calls use the cheaper `openai/gpt-4o-mini`; override with
+`OPENROUTER_MODEL` or `config set providers.openrouter.model`.
+
 ### Ollama (fully offline, no key)
 
 ```bash

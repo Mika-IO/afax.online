@@ -5,7 +5,8 @@ import { chat as anthropic } from './anthropic.js';
 import { chat as openai } from './openai.js';
 import { chat as ollama } from './ollama.js';
 
-const PROVIDERS = { anthropic, openai, ollama };
+// OpenRouter speaks the OpenAI Chat Completions API, so it reuses that adapter.
+const PROVIDERS = { anthropic, openai, ollama, openrouter: openai };
 
 /**
  * chat({ system, messages, json, temperature, maxTokens, onToken })

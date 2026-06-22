@@ -262,3 +262,14 @@ test('automation: conditional step branching', async () => {
   assert.ok(matches('content.created', 'new content'));
   assert.ok(matches('task.completed', 'task done'));
 });
+
+test('openrouter: detection + provider wiring', async () => {
+  const { detect } = await import('../src/integrations/catalog.js');
+  assert.equal(detect('sk-or-v1-abcdef1234567890abcdef').key, 'openrouter');
+  assert.equal(detect('sk-proj-abcdefghij1234567890').key, 'openai'); // still openai, not openrouter
+  const { DEFAULTS } = await import('../src/config.js');
+  assert.equal(DEFAULTS.providers.openrouter.baseUrl, 'https://openrouter.ai/api/v1');
+  const { workModel } = await import('../src/config.js');
+  // workModel resolves for the active provider; just ensure it returns a string
+  assert.ok(typeof workModel() === 'string');
+});

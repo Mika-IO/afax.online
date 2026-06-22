@@ -25,6 +25,10 @@ export async function chat({ apiKey, model, baseUrl, system, messages, temperatu
   if (sysText) msgs.push({ role: 'system', content: sysText });
   for (const m of messages) msgs.push({ role: m.role, content: m.content });
 
+  // OpenRouter (same baseUrl family) wants ranking headers; harmless elsewhere.
+  const headers = { authorization: `Bearer ${apiKey}` };
+  if (/openrouter\.ai/.test(baseUrl || '')) { headers['HTTP-Referer'] = 'https://afax.online'; headers['X-Title'] = 'AFAX'; }
+
   const reasoning = isReasoning(model);
   // Reasoning models spend most of the budget thinking before any visible
   // content, so small caps come back empty. Floor at 8k for them.
@@ -64,7 +68,7 @@ export async function chat({ apiKey, model, baseUrl, system, messages, temperatu
       let full = '';
       let usage = null;
       await streamPost(`${baseUrl}/chat/completions`, {
-        headers: { authorization: `Bearer ${apiKey}` },
+        headers,
         json: {
           ...payload(modern),
           stream: true,
@@ -90,7 +94,7 @@ export async function chat({ apiKey, model, baseUrl, system, messages, temperatu
   const data = await attempt((modern) =>
     http(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${apiKey}` },
+      headers,
       json: payload(modern),
     })
   );

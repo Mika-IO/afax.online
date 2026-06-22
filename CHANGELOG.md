@@ -12,6 +12,13 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 "dry-run"; synthetic leads are gone; marketing channels actually do something.
 
 ### Added
+- **OpenRouter provider (first-class).** Paste an `sk-or-…` key (smart-paste
+  auto-detects and routes it) or set `OPENROUTER_API_KEY`; `afax config set
+  provider openrouter` to use any of OpenRouter's models (`anthropic/claude-3.5-sonnet`,
+  `openai/gpt-4o-mini`, …). Reuses the OpenAI-compatible adapter with OpenRouter
+  ranking headers; agent work runs on the cheaper `openai/gpt-4o-mini`.
+  (`src/config.js`, `src/llm/index.js`, `src/llm/openai.js`,
+  `src/integrations/catalog.js`, `src/init.js`)
 - **Campaigns are executed multi-touch sequences (+ measured A/B).** `marketing
   campaign --steps N --days 0,3,6 [--where seg] [--ab]` designs the touch
   templates in one call and schedules each to draft real outreach on its day;

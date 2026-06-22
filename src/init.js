@@ -16,13 +16,13 @@ export async function init() {
 
   try {
     log(c.bold('  1) LLM provider'));
-    dim('     anthropic · openai (also Groq/OpenRouter/local) · ollama (offline)');
+    dim('     anthropic · openai · openrouter (100s of models) · ollama (offline)');
     const provider = (await ask('Provider', cfg.provider)).toLowerCase();
-    cfg.provider = ['anthropic', 'openai', 'ollama'].includes(provider) ? provider : 'anthropic';
+    cfg.provider = ['anthropic', 'openai', 'openrouter', 'ollama'].includes(provider) ? provider : 'anthropic';
 
     const block = cfg.providers[cfg.provider];
     if (cfg.provider !== 'ollama') {
-      const envName = cfg.provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY';
+      const envName = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', openrouter: 'OPENROUTER_API_KEY' }[cfg.provider] || 'OPENAI_API_KEY';
       log('');
       dim(`     Tip: leave blank to use the ${envName} env var instead of storing the key on disk.`);
       const key = await ask('API key', block.apiKey ? '•••stored' : '');
