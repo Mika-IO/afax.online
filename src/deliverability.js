@@ -29,10 +29,28 @@ export function sentToday() {
   const today = new Date().toISOString().slice(0, 10);
   return read('messages', []).filter((m) => m.sent && String(m.sentAt || m.createdAt || '').slice(0, 10) === today).length;
 }
+// Effective daily cap: a warmup ramp (if started) gradually raises the limit
+// from perDayStart to perDayMax over rampDays, capped by any explicit dailyCap.
+// 0 / Infinity = unlimited.
+export function effectiveDailyCap() {
+  const e = integration('email');
+  const w = e.warmup || {};
+  const explicit = Number(e.dailyCap || 0);
+  if (w.startedAt) {
+    const days = Math.max(0, Math.floor((Date.now() - new Date(w.startedAt).getTime()) / 86400000));
+    const start = Number(w.perDayStart || 20);
+    const max = Number(w.perDayMax || 200);
+    const ramp = Math.max(1, Number(w.rampDays || 14));
+    const ramped = Math.min(max, Math.round(start + (max - start) * (days / ramp)));
+    return explicit ? Math.min(explicit, ramped) : ramped;
+  }
+  return explicit || Infinity;
+}
+
 // Infinity when no cap is configured.
 export function remainingToday() {
-  const cap = Number(integration('email').dailyCap || 0);
-  if (!cap) return Infinity;
+  const cap = effectiveDailyCap();
+  if (!isFinite(cap) || cap === 0) return Infinity;
   return Math.max(0, cap - sentToday());
 }
 
