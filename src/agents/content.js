@@ -59,6 +59,8 @@ export async function cmd(args) {
 
   const rec = add('content', { format, topic, body });
   content.note(`Wrote ${format} on "${topic}".`);
+  const { emit } = await import('../events.js');
+  await emit('content.created', { format, topic, id: rec.id });
 
   log('');
   log(body.split('\n').map((l) => '  ' + l).join('\n'));

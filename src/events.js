@@ -11,6 +11,8 @@ const ALIASES = {
   'deal.won': ['deal.won', 'deal won', 'won deal', 'closed won'],
   'message.received': ['message.received', 'new message', 'inbound', 'reply', 'message received'],
   'payment.received': ['payment.received', 'payment', 'invoice paid', 'paid'],
+  'content.created': ['content.created', 'new content', 'content created', 'content published'],
+  'task.completed': ['task.completed', 'task done', 'task completed', 'task finished'],
 };
 
 export function matches(event, trigger) {
@@ -21,6 +23,33 @@ export function matches(event, trigger) {
 // Fill {{field}} placeholders in flow steps with event data.
 export function fill(stepLine, data = {}) {
   return stepLine.replace(/\{\{(\w+)\}\}/g, (_, k) => (data[k] ?? ''));
+}
+
+// A step may be guarded by a condition: "?field op value? command". The command
+// only runs when the condition holds against the event data. ops: = != > < >= <= ~
+export function parseStep(line) {
+  const m = String(line).match(/^\s*\?([^?]+)\?\s*(.+)$/);
+  return m ? { cond: m[1].trim(), cmd: m[2].trim() } : { cond: null, cmd: String(line) };
+}
+
+export function evalCondition(cond, data = {}) {
+  const m = String(cond).match(/^(\w+)\s*(>=|<=|!=|=|>|<|~)\s*(.+)$/);
+  if (!m) return true;
+  const [, field, op, rawVal] = m;
+  const left = data[field];
+  const val = rawVal.trim();
+  const ln = Number(left), rn = Number(val);
+  const bothNum = !Number.isNaN(ln) && !Number.isNaN(rn);
+  switch (op) {
+    case '=': return String(left).toLowerCase() === val.toLowerCase();
+    case '!=': return String(left).toLowerCase() !== val.toLowerCase();
+    case '~': return String(left ?? '').toLowerCase().includes(val.toLowerCase());
+    case '>': return bothNum && ln > rn;
+    case '<': return bothNum && ln < rn;
+    case '>=': return bothNum && ln >= rn;
+    case '<=': return bothNum && ln <= rn;
+    default: return true;
+  }
 }
 
 // Re-entrancy guard so a flow that emits events cannot loop forever.
@@ -36,8 +65,10 @@ export async function emit(event, data = {}) {
     for (const flow of flows) {
       step(`Event ${c.orange(event)} → flow ${c.bold(flow.name)}`);
       for (const line of flow.steps || []) {
+        const { cond, cmd } = parseStep(line);
+        if (cond && !evalCondition(cond, data)) { log(`  ${c.dim('skip (?' + cond + '? false): ' + cmd)}`); continue; }
         try {
-          await dispatch(tokenize(fill(line, data)));
+          await dispatch(tokenize(fill(cmd, data)));
         } catch (e) {
           warn(`Flow step failed: ${e.message}`);
         }

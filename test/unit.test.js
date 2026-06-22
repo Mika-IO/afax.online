@@ -248,3 +248,17 @@ test('deliverability: suppress + footer compliance', async () => {
   // doesn't double-append if one already present
   assert.equal(withFooter(body, 'x@y.com'), body);
 });
+
+test('automation: conditional step branching', async () => {
+  const { parseStep, evalCondition, matches } = await import('../src/events.js');
+  assert.deepEqual(parseStep('?score>=70? sales sequence --deal X'), { cond: 'score>=70', cmd: 'sales sequence --deal X' });
+  assert.deepEqual(parseStep('plain command'), { cond: null, cmd: 'plain command' });
+  assert.equal(evalCondition('score>=70', { score: 80 }), true);
+  assert.equal(evalCondition('score>=70', { score: 50 }), false);
+  assert.equal(evalCondition('stage=demo', { stage: 'demo' }), true);
+  assert.equal(evalCondition('signal~POS', { signal: 'wants POS integration' }), true);
+  assert.equal(evalCondition('count!=0', { count: 3 }), true);
+  // new triggers wired
+  assert.ok(matches('content.created', 'new content'));
+  assert.ok(matches('task.completed', 'task done'));
+});
