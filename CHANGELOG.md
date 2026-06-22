@@ -46,6 +46,13 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 - **Tasks & Approvals docs** (`docs/tasks.md`).
 
 ### Changed
+- **Storage is now SQLite (built-in `node:sqlite`, still zero-dependency).** Each
+  workspace gets a local `records.db`; inserts/updates/deletes are indexed and
+  O(1)/O(log n) instead of rewriting a whole JSON file, and worker + chat can
+  write concurrently (WAL + busy timeout). Existing `*.json` collections are
+  migrated automatically on first open and kept as `*.json.bak` backups. The
+  `store.js` API is unchanged, so callers didn't move. **Requires Node ≥ 22.5.**
+  (`src/db.js`, `src/store.js`, `src/data.js`)
 - **Prompt caching (Anthropic).** The large, static system prompt (business
   profile + style + tool list) is sent with `cache_control: ephemeral`, so within
   the 5-min TTL it's re-read at ~0.1x input cost instead of full price every call.

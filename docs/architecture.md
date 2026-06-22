@@ -18,7 +18,7 @@ src/llm/index.js — chat()
    │  one interface; adapters: anthropic.js · openai.js · ollama.js
    │  json:true → strict-JSON instruction + tolerant parser (strips fences/prose)
    ▼
-src/store.js — collections in ~/.afax/workspaces/<slug>/data/*.json
+src/store.js + db.js — collections in a per-workspace SQLite DB (data/records.db, node:sqlite)
    ▼
 src/logger.js — tables, headers, spinners, colors (no TTY = plain)
 ```

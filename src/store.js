@@ -1,81 +1,12 @@
-// JSON file persistence, scoped to the ACTIVE workspace. Each collection is one
-// file under ~/.afax/workspaces/<slug>/data/. Dir is resolved per call so a
-// `workspace use` mid-process takes effect immediately.
-import { join } from 'node:path';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { AFAX_HOME, dataDir, ensureDir } from './paths.js';
-
+// Persistence facade. State lives in a per-workspace SQLite DB (see db.js);
+// this module keeps the historical store API so every caller is unchanged.
+import { AFAX_HOME } from './paths.js';
 export { AFAX_HOME };
+export { read, write, add, addMany, update, find, remove, cuid } from './db.js';
 
-function file(name) {
-  return join(ensureDir(dataDir()), `${name}.json`);
-}
-
-export function read(name, fallback = []) {
-  const f = file(name);
-  if (!existsSync(f)) return fallback;
-  try {
-    return JSON.parse(readFileSync(f, 'utf8'));
-  } catch {
-    return fallback;
-  }
-}
-
-export function write(name, data) {
-  writeFileSync(file(name), JSON.stringify(data, null, 2));
-  return data;
-}
-
-export function add(name, item) {
-  const list = read(name, []);
-  const record = {
-    id: item.id || cuid(),
-    createdAt: new Date().toISOString(),
-    ...item,
-  };
-  list.push(record);
-  write(name, list);
-  return record;
-}
-
-// Append many records in a single read+write — O(n) instead of O(n·m) when you
-// add() in a loop. Returns the created records.
-export function addMany(name, items) {
-  if (!items.length) return [];
-  const list = read(name, []);
-  const created = items.map((item) => ({ id: item.id || cuid(), createdAt: new Date().toISOString(), ...item }));
-  for (const rec of created) list.push(rec);
-  write(name, list);
-  return created;
-}
-
-export function update(name, id, patch) {
-  const list = read(name, []);
-  const idx = list.findIndex((x) => x.id === id);
-  if (idx === -1) return null;
-  list[idx] = { ...list[idx], ...patch, updatedAt: new Date().toISOString() };
-  write(name, list);
-  return list[idx];
-}
-
-export function find(name, pred) {
-  return read(name, []).find(pred) || null;
-}
-
-export function remove(name, id) {
-  const list = read(name, []);
-  const next = list.filter((x) => x.id !== id);
-  write(name, next);
-  return list.length - next.length; // count removed
-}
-
-// Names of all known collections (for export/import).
+// Names of all known collections (for export/import + the panel DB views).
 export const COLLECTIONS = [
   'leads', 'contacts', 'crm_notes', 'deals', 'messages', 'posts',
   'campaigns', 'channels', 'content', 'flows', 'schedule',
   'revenue', 'expenses', 'invoices', 'memory', 'inbox', 'usage', 'tasks', 'conversations', 'suppressions',
 ];
-
-export function cuid() {
-  return (Date.now().toString(36) + Math.random().toString(36).slice(2, 7)).toUpperCase();
-}
