@@ -36,6 +36,17 @@ Field reference:
 | `apiKey` | Resend / SendGrid key |
 | `host` / `port` / `user` / `pass` | SMTP only; implicit TLS, default port 465 |
 
+## Deliverability & compliance
+
+Before sending at volume, AFAX protects your domain and keeps you legal:
+
+- **Suppression list** — opt-outs, bounces and complaints are never contacted again. `afax suppress list` to view, `afax suppress <email>` to add. [Outreach](#/outreach) and `approve --all` skip suppressed addresses automatically.
+- **Unsubscribe** — every cold email gets a compliant footer. With `afax serve` + a public URL set, it's a one-click `GET /unsubscribe?e=…` link; otherwise a "reply STOP" fallback. A STOP/unsubscribe reply also opts the sender out.
+- **Bounces/complaints** — point Resend's webhook at `POST /webhook/resend`; bounced/complained addresses are suppressed automatically.
+- **Throughput controls** — `config set integrations.email.dailyCap 200` caps real sends per day; `config set integrations.email.minDelayMs 1000` throttles between batches.
+
+> Warmup and multi-inbox rotation (sending across many mailboxes) are not built in — for very high volume, pair AFAX with a dedicated sending/warmup provider.
+
 ## 3. Send
 
 ### One email to a specific address — `afax email send`

@@ -18,9 +18,16 @@ const usageOf = (u) => (u ? { input: u.prompt_tokens || 0, output: u.completion_
 
 export async function chat({ apiKey, model, baseUrl, system, messages, temperature, maxTokens, onToken, signal }) {
   if (!apiKey) throw new Error('Missing API key for OpenAI-compatible provider. Run: afax config set providers.openai.apiKey <key>  (or export OPENAI_API_KEY)');
+  // system may be an array of { text } blocks (static-first, dynamic-last) or a
+  // string. Joined into one system message; OpenAI auto-caches the stable prefix.
+  const sysText = Array.isArray(system) ? system.map((b) => b.text).filter(Boolean).join('\n') : (system || '');
   const msgs = [];
-  if (system) msgs.push({ role: 'system', content: system });
+  if (sysText) msgs.push({ role: 'system', content: sysText });
   for (const m of messages) msgs.push({ role: m.role, content: m.content });
+
+  // OpenRouter (same baseUrl family) wants ranking headers; harmless elsewhere.
+  const headers = { authorization: `Bearer ${apiKey}` };
+  if (/openrouter\.ai/.test(baseUrl || '')) { headers['HTTP-Referer'] = 'https://afax.online'; headers['X-Title'] = 'AFAX'; }
 
   const reasoning = isReasoning(model);
   // Reasoning models spend most of the budget thinking before any visible
@@ -61,7 +68,7 @@ export async function chat({ apiKey, model, baseUrl, system, messages, temperatu
       let full = '';
       let usage = null;
       await streamPost(`${baseUrl}/chat/completions`, {
-        headers: { authorization: `Bearer ${apiKey}` },
+        headers,
         json: {
           ...payload(modern),
           stream: true,
@@ -87,7 +94,7 @@ export async function chat({ apiKey, model, baseUrl, system, messages, temperatu
   const data = await attempt((modern) =>
     http(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${apiKey}` },
+      headers,
       json: payload(modern),
     })
   );

@@ -68,7 +68,7 @@ Above them sits the **orchestrator** — `afax run --execute` reads the whole co
 - 🧠 **Actually autonomous** — the orchestrator plans and acts; the scheduler + one cron line keeps it running around the clock.
 - 🌐 **Two-way** — `afax serve` handles inbound webhooks (Telegram/WhatsApp/email/Stripe), an inbox, AI auto-reply, and hosting for generated images.
 - 🔒 **Safe by default** — every outbound action is **dry-run** until two gates are open: global `live` **and** per-command `--live`. Enforced at one choke-point — a new connector can't bypass it.
-- 🏠 **Local-first** — all state is human-readable JSON under `~/.afax/`. `cat` is a valid debugger. Nothing leaves your machine except the API calls you configure.
+- 🏠 **Local-first** — all state lives under `~/.afax/`: a local SQLite database per workspace (built-in `node:sqlite`, still zero-dependency) plus plain-JSON config. Nothing leaves your machine except the API calls you configure.
 - 🔁 **Multi-model** — Anthropic, any OpenAI-compatible endpoint (OpenAI, Groq, OpenRouter, vLLM, LM Studio…), or **Ollama fully offline**. Switch with one command.
 - 📦 **Zero dependencies** — only the Node standard library. Even the SMTP client and `.env` loader are built in. Nothing to compile, no supply chain.
 - 🏢 **Multi-company** — isolated workspaces per business: own profile, keys, data, memory.

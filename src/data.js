@@ -4,7 +4,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { workspaceDir, dataDir, activeSlug, slugify, ensureDir } from './paths.js';
-import { COLLECTIONS } from './store.js';
+import { exportAll, importAll } from './db.js';
 import { createWorkspace } from './workspace.js';
 import { c, header, ok, info, warn, log } from './logger.js';
 
@@ -30,13 +30,7 @@ function redactObj(obj) {
 export function buildExport(slug = activeSlug(), { withSecrets = false } = {}) {
   const wsConfig = readWsConfig(slug);
   const profile = withSecrets ? wsConfig : { ...wsConfig, integrations: redactObj(wsConfig.integrations) };
-  const data = {};
-  for (const name of COLLECTIONS) {
-    const f = join(dataDir(slug), name + '.json');
-    if (existsSync(f)) {
-      try { data[name] = JSON.parse(readFileSync(f, 'utf8')); } catch {}
-    }
-  }
+  const data = exportAll(slug);
   return {
     afax: 'workspace-export',
     version: 1,
@@ -79,22 +73,9 @@ export function importCmd(args) {
   ensureDir(workspaceDir(slug));
   writeFileSync(cfgPath, JSON.stringify(merged, null, 2));
 
-  // Data collections
+  // Data collections (INSERT OR REPLACE handles merge by id; non-merge replaces).
   ensureDir(dataDir(slug));
-  let total = 0;
-  for (const [name, rows] of Object.entries(payload.data || {})) {
-    const f = join(dataDir(slug), name + '.json');
-    let out = rows;
-    if (args.merge && existsSync(f)) {
-      try {
-        const cur = JSON.parse(readFileSync(f, 'utf8'));
-        const ids = new Set(cur.map((x) => x.id));
-        out = cur.concat(rows.filter((r) => !ids.has(r.id)));
-      } catch {}
-    }
-    writeFileSync(f, JSON.stringify(out, null, 2));
-    total += rows.length;
-  }
+  const total = importAll(slug, payload.data || {}, { merge: !!args.merge });
   header('📥 Import', `→ workspace ${slug}`);
   ok(`Imported ${total} records into ${c.bold(slug)}.`);
   info(`Switch to it: ${c.cyan('afax workspace use ' + slug)}`);

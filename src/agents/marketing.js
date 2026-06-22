@@ -1,6 +1,6 @@
 // 🚀 Marketing — multichannel acquisition, campaigns, distribution.
 import { Agent } from './base.js';
-import { read, write, add, remove } from '../store.js';
+import { read, write, add, update, remove, find } from '../store.js';
 import { load } from '../config.js';
 import { c, header, table, ok, info, warn, spin, step, log } from '../logger.js';
 
@@ -94,37 +94,81 @@ function channelCmd(args) {
   }
 }
 
+// A campaign is an EXECUTED multi-touch sequence, not a static plan: one LLM
+// call designs N reusable templates, then each touch is scheduled to draft real
+// outreach (into the approval queue) on its day. Optional A/B subject on touch 1.
 async function campaignCmd(args) {
+  if (args._[1] === 'send') return campaignSend(args);
+  if (args._[1] === 'report') return campaignReport(args);
   const channel = args.channel || 'email';
   const goal = args.goal || args.topic || 'drive qualified signups';
-  const known = CHANNELS.find((ch) => ch[0] === channel);
-  header(`${marketing.emoji} Marketing`, `Campaign · ${known?.[1] || channel}`);
+  const steps = Math.min(parseInt(args.steps || '3', 10) || 3, 6);
+  const days = args.days ? String(args.days).split(',').map((n) => parseInt(n, 10) || 0) : defaultDays(steps);
+  const segment = args.where || args.segment || '';
+  const limit = Math.min(parseInt(args.limit || '50', 10) || 50, 1000);
+  const ab = !!args.ab;
+  header(`${marketing.emoji} Marketing`, `Campaign · ${channel} · ${steps} touches${ab ? ' · A/B' : ''}`);
+  if (!marketing.online) return warn('Campanha precisa de LLM. Rode ' + c.cyan('afax init') + '.');
 
-  if (!marketing.online) return warn('Campanha precisa de um LLM pra planejar. Rode ' + c.cyan('afax init') + '.');
-  const plan = await spin('Designing campaign', () =>
+  const j = await spin('Designing the sequence (1 call)', () =>
     marketing.structured(
-      `Design a ${known?.[1] || channel} campaign. Goal: "${goal}".\n` +
-        `Return JSON: {"name","hook","angle","audience","cadence","assets":["..."],"cta","kpi","steps":["..."]}`,
-      { maxTokens: 1600 }
+      `Design a ${steps}-touch cold ${channel} SEQUENCE for: "${goal}". Each touch is a reusable TEMPLATE using merge vars ` +
+        `{{first_name}}, {{company}}, {{signal}} and light {spintax}. The touches escalate: intro → value → proof/objection → soft ask. ` +
+        (ab ? 'Also provide an alternative A/B subject line for touch 1. ' : '') +
+        `Return JSON: {"name","touches":[{"subject":"<under 7 words>","body":"<under 90 words>"}],"abSubjectB":"<alt subject for touch 1, or empty>"}`,
+      { maxTokens: 1800 }
     )
   );
+  const touches = (j.touches || []).slice(0, steps);
+  if (!touches.length) return warn('A IA não retornou touches. Tente de novo.');
+  const rec = add('campaigns', { channel, goal, name: j.name || goal, segment, limit, status: 'scheduled', touches, abSubjectB: ab ? (j.abSubjectB || '') : '' });
 
-  const rec = add('campaigns', { channel, goal, ...plan, status: 'draft' });
-  marketing.note(`Drafted campaign "${plan.name}" on ${channel} (goal: ${goal}).`);
-
-  step(plan.name || 'Campaign');
-  if (plan.hook) log('  ' + c.bold('Hook:   ') + plan.hook);
-  if (plan.angle) log('  ' + c.bold('Angle:  ') + plan.angle);
-  if (plan.audience) log('  ' + c.bold('Who:    ') + plan.audience);
-  if (plan.cadence) log('  ' + c.bold('Cadence:') + ' ' + plan.cadence);
-  if (plan.cta) log('  ' + c.bold('CTA:    ') + plan.cta);
-  if (plan.kpi) log('  ' + c.bold('KPI:    ') + plan.kpi);
-  if (plan.steps?.length) {
-    log('');
-    plan.steps.forEach((s, i) => log(`  ${c.orange(i + 1 + '.')} ${s}`));
-  }
+  const now = Date.now();
+  touches.forEach((t, i) => {
+    add('schedule', { command: `marketing campaign send ${rec.id} ${i}`, when: `day ${days[i] ?? i * 3}`, nextRun: now + (days[i] ?? i * 3) * DAILY, runs: 0, source: 'campaign', campaignId: rec.id });
+  });
+  marketing.note(`Scheduled campaign "${rec.name}" — ${touches.length} touches on days ${days.slice(0, touches.length).join(',')}.`);
+  step(rec.name);
+  touches.forEach((t, i) => log(`  ${c.orange('day ' + (days[i] ?? i * 3))}  ${c.bold(t.subject)}${i === 0 && ab ? c.dim('  (A/B: "' + rec.abSubjectB + '")') : ''}`));
   log('');
-  ok(`Saved campaign ${c.dim(rec.id)}. List all: ${c.cyan('afax marketing campaigns')}`);
+  ok(`Campaign ${c.dim(rec.id)} agendada${segment ? ` p/ segmento "${segment}"` : ''}. Roda no ${c.cyan('afax cloud')} heartbeat → rascunhos em ${c.cyan('afax approvals')}. Resultados: ${c.cyan('afax marketing campaign report ' + rec.id)}.`);
+}
+
+const defaultDays = (n) => Array.from({ length: n }, (_, i) => i * 3); // 0,3,6,9…
+
+// Run one touch of a campaign — drafts outreach using that touch's template.
+async function campaignSend(args) {
+  const id = args._[2];
+  const i = parseInt(args._[3] || '0', 10) || 0;
+  const camp = find('campaigns', (x) => x.id === id);
+  if (!camp) return warn(`No campaign "${id}".`);
+  const t = camp.touches?.[i];
+  if (!t) return warn(`Campaign ${id} has no touch ${i}.`);
+  const { cmd: outreachCmd } = await import('./outreach.js');
+  const oargs = { channel: camp.channel || 'email', template: t.body, subject: t.subject, campaign: id, limit: String(camp.limit || 50), _: [] };
+  if (camp.segment) oargs.where = camp.segment;
+  if (i === 0 && camp.abSubjectB) { oargs['template-b'] = t.body; oargs['subject-b'] = camp.abSubjectB; } // A/B subject, same body
+  await outreachCmd(oargs);
+}
+
+// Per-variant performance → declare the A/B winner.
+async function campaignReport(args) {
+  const id = args._[2];
+  if (!id) return warn('Usage: afax marketing campaign report <id>');
+  const { emailStats } = await import('../metrics.js');
+  const msgs = read('messages', []).filter((m) => m.campaignId === id);
+  header(`${marketing.emoji} Marketing`, `Campaign report · ${id}`);
+  if (!msgs.length) return info('Sem envios dessa campanha ainda.');
+  const overall = emailStats(msgs);
+  log(`  ${c.bold('Geral:')} ${overall.sent} enviados · open ${overall.openRate}% · reply ${overall.replyRate}%`);
+  const variants = [...new Set(msgs.map((m) => m.variant).filter(Boolean))].sort();
+  if (variants.length > 1) {
+    log('');
+    const rows = variants.map((v) => { const s = emailStats(msgs.filter((m) => m.variant === v)); return { v, s }; });
+    table(['Variant', 'Sent', 'Open%', 'Reply%'], rows.map((r) => [r.v, r.s.sent, r.s.openRate, r.s.replyRate]));
+    const win = rows.slice().sort((a, b) => (b.s.replyRate - a.s.replyRate) || (b.s.openRate - a.s.openRate))[0];
+    ok(`Vencedor: variante ${c.bold(win.v)} (reply ${win.s.replyRate}%, open ${win.s.openRate}%).`);
+  }
 }
 
 // afax marketing publish --platform facebook|instagram|telegram|slack|discord --message "..." [--image url] [--live]
@@ -177,24 +221,29 @@ async function publishCmd(args) {
 // afax marketing ads --goal "..." [--budget 20] [--live]
 // AI designs the campaign; live mode creates it PAUSED in Meta Ads.
 async function adsCmd(args) {
+  if (args._[1] === 'insights') return adsInsightsCmd(args);
   const goal = args.goal || args.topic || 'drive qualified signups';
   const budget = Number(args.budget || 10);
   const live = !!args.live;
   const { isLive } = await import('../config.js');
+  const cfg = load();
   header(`${marketing.emoji} Marketing`, `Paid ads · $${budget}/day · ${live && isLive() ? 'LIVE' : 'dry-run'}`);
 
-  let plan = { name: `Ads: ${goal}`.slice(0, 60), objective: 'OUTCOME_TRAFFIC', audience: '', headline: '', primaryText: '' };
+  let plan = { name: `Ads: ${goal}`.slice(0, 60), objective: 'OUTCOME_TRAFFIC', audience: '', headline: '', primaryText: '', countries: ['US'], ageMin: 18, ageMax: 65, link: cfg.business.website || '' };
   if (marketing.online) {
-    plan = await spin('Designing ad campaign', () =>
+    plan = await spin('Designing ad campaign + creative + audience', () =>
       marketing.structured(
-        `Design a Meta paid-ads campaign. Goal: "${goal}". Daily budget: $${budget}.\n` +
-          `Return JSON: {"name","objective":"OUTCOME_TRAFFIC|OUTCOME_LEADS|OUTCOME_SALES|OUTCOME_AWARENESS","audience","headline","primaryText"}`,
-        { maxTokens: 700 }
+        `Design a complete Meta paid-ads unit. Goal: "${goal}". Daily budget: $${budget}. Business: ${cfg.business.name || '—'} (ICP: ${cfg.business.icp || '—'}).\n` +
+          `Return JSON: {"name","objective":"OUTCOME_TRAFFIC|OUTCOME_LEADS|OUTCOME_SALES|OUTCOME_AWARENESS",` +
+          `"headline":"<under 40 chars>","primaryText":"<ad body, 1-2 sentences>","audience":"<one-line description>",` +
+          `"countries":["ISO codes e.g. BR or US"],"ageMin":<int>,"ageMax":<int>}`,
+        { maxTokens: 800 }
       )
     );
+    plan.link ||= cfg.business.website || '';
   }
   step(plan.name || 'Campaign');
-  if (plan.audience) log('  ' + c.bold('Audience: ') + plan.audience);
+  if (plan.audience) log('  ' + c.bold('Audience: ') + plan.audience + c.dim(`  (${(plan.countries || ['US']).join(',')}, ${plan.ageMin || 18}-${plan.ageMax || 65})`));
   if (plan.headline) log('  ' + c.bold('Headline: ') + plan.headline);
   if (plan.primaryText) log('  ' + c.bold('Text:     ') + plan.primaryText);
   log('  ' + c.bold('Objective:') + ' ' + (plan.objective || 'OUTCOME_TRAFFIC') + '   ' + c.bold('Budget:') + ` $${budget}/day`);
@@ -202,16 +251,40 @@ async function adsCmd(args) {
 
   if (!(live && isLive())) {
     const rec = add('campaigns', { channel: 'ppc', goal, ...plan, budget, status: 'draft' });
-    info(`Dry-run — saved as draft ${c.dim(rec.id)}. Create for real: ${c.cyan('afax config set live true')} + ${c.cyan('--live')}.`);
+    info(`Preparado — ${c.bold('nada criado')}. Criar de verdade (PAUSED): ${c.cyan('afax config set live true')} + ${c.cyan('--live')}.`);
     return;
   }
   const { meta } = await import('../integrations/registry.js');
-  const ids = await spin('Creating PAUSED campaign in Meta Ads', () =>
-    meta.adsCreateCampaign({ name: plan.name, objective: plan.objective, dailyBudget: budget })
-  );
-  const rec = add('campaigns', { channel: 'ppc', goal, ...plan, budget, status: 'paused', metaCampaignId: ids.campaignId, metaAdsetId: ids.adsetId });
-  marketing.note(`Created Meta ads campaign "${plan.name}" ($${budget}/day, paused).`);
-  ok(`PAUSED campaign created (${ids.campaignId}). Add creative & activate in Ads Manager. Saved ${c.dim(rec.id)}.`);
+  const rec = add('campaigns', { channel: 'ppc', goal, ...plan, budget, status: 'creating' });
+  try {
+    const ids = await spin('Campaign + ad set (targeting)', () =>
+      meta.adsCreateCampaign({ name: plan.name, objective: plan.objective, dailyBudget: budget, countries: plan.countries || ['US'], ageMin: plan.ageMin || 18, ageMax: plan.ageMax || 65 }));
+    const cr = await spin('Ad creative (copy + link)', () =>
+      meta.adsCreateCreative({ name: plan.name, message: plan.primaryText, headline: plan.headline, link: plan.link }));
+    const ad = await spin('Ad (paused)', () => meta.adsCreateAd({ name: plan.name, adsetId: ids.adsetId, creativeId: cr.creativeId }));
+    update('campaigns', rec.id, { status: 'paused', metaCampaignId: ids.campaignId, metaAdsetId: ids.adsetId, metaCreativeId: cr.creativeId, metaAdId: ad.adId });
+    marketing.note(`Created Meta ad unit "${plan.name}" ($${budget}/day, paused).`);
+    ok(`PAUSED ad ready (campaign ${ids.campaignId}) — creative + targeting attached. Review/activate in Ads Manager. Results later: ${c.cyan('afax marketing ads insights ' + ids.campaignId)}.`);
+  } catch (e) {
+    update('campaigns', rec.id, { status: 'failed', error: e.message });
+    warn(`Ads creation failed: ${e.message}`);
+  }
+}
+
+// Read live performance for a campaign/adset/ad id.
+async function adsInsightsCmd(args) {
+  const id = args._[2] || args.id;
+  if (!id) return warn('Usage: afax marketing ads insights <campaign|adset|ad id>');
+  const { meta } = await import('../integrations/registry.js');
+  header(`${marketing.emoji} Marketing`, `Ad insights · ${id}`);
+  try {
+    const r = await spin('Reading Meta insights', () => meta.adsInsights({ id, datePreset: args.preset || 'last_7d' }));
+    if (!r || !Object.keys(r).length) return info('Sem dados ainda (campanha pausada/nova não gera insights).');
+    table(['Metric', 'Value'], [
+      ['Impressions', r.impressions || '0'], ['Clicks', r.clicks || '0'], ['CTR', (r.ctr || '0') + '%'],
+      ['Spend', '$' + (r.spend || '0')], ['CPC', '$' + (r.cpc || '0')], ['Reach', r.reach || '0'],
+    ]);
+  } catch (e) { warn(`Insights failed: ${e.message}`); }
 }
 
 function listCampaigns() {

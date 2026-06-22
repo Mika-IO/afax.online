@@ -176,6 +176,12 @@ export async function dispatch(argv, ctx = {}) {
     case 'approve':
     case 'reject':
       return approvalsCmd(cmd, args);
+    case 'suppress':
+    case 'suppressions':
+      return suppressCmd(args);
+    case 'metrics':
+    case 'performance':
+      return metricsCmd(args);
     default:
       warn(`Unknown command: ${cmd}`);
       log(`Run ${c.cyan('afax help')} for the command list.`);
@@ -224,7 +230,14 @@ function dataCmd(args) {
 // `afax approvals` lists prepared-but-unsent outbound. `afax approve <id>` does
 // the REAL send (human is the gate). `afax reject <id>` discards it.
 async function approvalsCmd(cmd, args) {
-  const { pending, approve, reject } = await import('./approvals.js');
+  const { pending, approve, approveAll, reject } = await import('./approvals.js');
+  if (cmd === 'approve' && (args.all || args._[0] === 'all')) {
+    const n = pending().length;
+    if (!n) return info('Nada pendente.');
+    info(`Enviando ${n} item(s) de verdade (email em lote)…`);
+    const r = await approveAll({});
+    return ok(`Enviados ${r.sent}/${n} de verdade${r.failed ? c.yellow(` · ${r.failed} falharam`) : ''}.`);
+  }
   if (cmd === 'approvals') {
     const items = pending();
     header('✅ Aprovações', `${items.length} item(s) preparado(s) — nada enviado ainda`);
@@ -247,6 +260,45 @@ async function approvalsCmd(cmd, args) {
   const r = await approve(id);
   if (r.ok) ok(`Enviado de verdade ${id} (recibo ${r.receipt}).`);
   else warn(`Falhou: ${r.error}`);
+}
+
+// ---- suppress command ------------------------------------------------------
+// `afax suppress list` shows opt-outs/bounces; `afax suppress <email>` adds one.
+async function suppressCmd(args) {
+  const { suppress, suppressedSet } = await import('./deliverability.js');
+  const arg = args._[0];
+  if (!arg || arg === 'list') {
+    const rows = read('suppressions', []);
+    header('📭 Suppressions', `${rows.length} endereço(s) — nunca contatados`);
+    table(['Email', 'Motivo', 'Quando'], rows.slice(-50).map((s) => [s.email, s.reason || '—', (s.createdAt || '').slice(0, 10)]));
+    return;
+  }
+  const n = suppress(arg, 'manual');
+  return n ? ok(`${arg} suprimido.`) : info(`${arg} já estava na lista.`);
+}
+
+// ---- metrics command -------------------------------------------------------
+// `afax metrics` — the real outcome funnel (delivered/opened/clicked/replied)
+// plus cost-per-outcome from the usage ledger.
+async function metricsCmd() {
+  const { emailStats } = await import('./metrics.js');
+  const { monthTotals } = await import('./usage.js');
+  const s = emailStats();
+  header('📈 Metrics', 'Email funnel — real outcomes');
+  table(
+    ['Stage', 'Count', 'Rate'],
+    [
+      ['Sent', s.sent, ''],
+      ['Delivered', s.delivered, s.deliveryRate + '%'],
+      ['Opened', s.opened, s.openRate + '%'],
+      ['Clicked', s.clicked, s.clickRate + '%'],
+      ['Replied', s.replied, s.replyRate + '%'],
+    ]
+  );
+  log('');
+  const spend = monthTotals().cost || 0;
+  if (s.sent) info(`Custo/enviado: ${c.bold('$' + (spend / s.sent).toFixed(4))}  ·  custo/resposta: ${c.bold(s.replied ? '$' + (spend / s.replied).toFixed(2) : '—')}  (LLM no mês: $${spend.toFixed(2)})`);
+  if (!s.sent) info('Nada enviado ainda. Métricas de open/click chegam via webhook do Resend (POST /webhook/resend).');
 }
 
 // ---- config command --------------------------------------------------------

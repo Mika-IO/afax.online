@@ -24,6 +24,8 @@ function unescape(s) {
 export async function cmd(args) {
   const sub = args._[0];
   if (sub === 'status') return statusCmd();
+  if (sub === 'warmup') return warmupCmd(args);
+  if (sub === 'senders') return sendersCmd(args);
   // `email from <addr>`  /  `email set from <addr>` — change the sender address.
   if (sub === 'from' || (sub === 'set' && args._[1] === 'from')) {
     const addr = String((sub === 'from' ? args._[1] : args._[2]) || args.from || '').trim();
@@ -74,5 +76,61 @@ function statusCmd() {
   log(`  driver: ${c.bold(st.driver || '—')}`);
   log(`  from:   ${c.bold(st.from)}`);
   log(`  status: ${st.connected ? c.green('connected') : c.yellow('not set')}`);
+  const e = load().integrations.email;
+  log(`  senders: ${c.bold(String(email.senderList(e).length))} (rotation)`);
+  if (e.warmup?.startedAt) {
+    import('../deliverability.js').then(({ effectiveDailyCap, sentToday }) => {
+      log(`  warmup: ${c.green('on')} · cap hoje ${c.bold(String(effectiveDailyCap()))} · enviados hoje ${sentToday()}`);
+    });
+  } else log(`  warmup: ${c.dim('off')}  (afax email warmup start)`);
   if (!st.connected) info('Connect: afax connect email');
+}
+
+// Warmup ramp — gradually raise the daily send cap to protect a new domain.
+async function warmupCmd(args) {
+  const cfg = load();
+  const w = cfg.integrations.email.warmup || {};
+  const action = args._[1];
+  if (action === 'start') {
+    w.startedAt = new Date().toISOString();
+    if (args.start) w.perDayStart = Number(args.start);
+    if (args.max) w.perDayMax = Number(args.max);
+    if (args.days) w.rampDays = Number(args.days);
+    cfg.integrations.email.warmup = w;
+    save(cfg);
+    const { effectiveDailyCap } = await import('../deliverability.js');
+    return ok(`Warmup iniciado: ${w.perDayStart}/dia → ${w.perDayMax}/dia em ${w.rampDays} dias. Cap hoje: ${c.bold(String(effectiveDailyCap()))}.`);
+  }
+  if (action === 'stop') { w.startedAt = ''; cfg.integrations.email.warmup = w; save(cfg); return ok('Warmup desligado.'); }
+  const { effectiveDailyCap, sentToday } = await import('../deliverability.js');
+  header('✉️  Email', 'Warmup');
+  if (!w.startedAt) return info('Off. Ligar: afax email warmup start [--start 20 --max 200 --days 14]');
+  log(`  desde ${w.startedAt.slice(0, 10)} · ${w.perDayStart}→${w.perDayMax}/dia em ${w.rampDays}d`);
+  log(`  cap hoje: ${c.bold(String(effectiveDailyCap()))}  ·  enviados hoje: ${sentToday()}`);
+}
+
+// Manage the from-address rotation pool.
+function sendersCmd(args) {
+  const cfg = load();
+  const e = cfg.integrations.email;
+  e.senders = e.senders || [];
+  const action = args._[1];
+  if (action === 'add') {
+    const addr = String(args._[2] || args.addr || '').trim();
+    if (!EMAIL_RE.test(addr)) return warn(`"${addr}" não é um email válido.`);
+    if (!e.senders.includes(addr)) e.senders.push(addr);
+    save(cfg);
+    return ok(`Sender adicionado. Pool: ${e.senders.join(', ')}`);
+  }
+  if (action === 'rm') {
+    const addr = String(args._[2] || '').trim();
+    e.senders = e.senders.filter((s) => s !== addr);
+    save(cfg);
+    return ok(`Removido. Pool: ${e.senders.join(', ') || '(só o from padrão)'}`);
+  }
+  header('✉️  Email', 'Sender rotation pool');
+  const pool = e.senders.length ? e.senders : [e.from].filter(Boolean);
+  if (!pool.length) return info('Nenhum sender. Defina: afax email from <addr> · ou afax email senders add <addr>');
+  pool.forEach((s) => log('  • ' + s));
+  info('Adicionar: afax email senders add you@otherdomain.com');
 }

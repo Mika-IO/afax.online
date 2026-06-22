@@ -11,8 +11,19 @@ export const CATALOG = [
     key: 'openai', label: 'OpenAI', kind: 'provider', secret: 'providers.openai.apiKey',
     get: 'https://platform.openai.com/api-keys',
     fields: [{ path: 'providers.openai.apiKey', label: 'API key', secret: true, placeholder: 'sk-…' }],
-    detect: /^sk-(?!ant-)(proj-|svcacct-)?[A-Za-z0-9_-]{20,}$/,
+    detect: /^sk-(?!ant-|or-)(proj-|svcacct-)?[A-Za-z0-9_-]{20,}$/,
     test: async (cfg) => testGet('https://api.openai.com/v1/models', { authorization: `Bearer ${cfg.providers.openai.apiKey}` }),
+  },
+  {
+    key: 'openrouter', label: 'OpenRouter', kind: 'provider', secret: 'providers.openrouter.apiKey',
+    get: 'https://openrouter.ai/keys',
+    fields: [
+      { path: 'providers.openrouter.apiKey', label: 'API key', secret: true, placeholder: 'sk-or-…' },
+      { path: 'providers.openrouter.model', label: 'Model', placeholder: 'openai/gpt-4o-mini · anthropic/claude-3.5-sonnet · …' },
+    ],
+    onSet: (cfg) => { if (!cfg.providers[cfg.provider]?.apiKey || cfg.provider === 'openrouter') cfg.provider = 'openrouter'; },
+    detect: /^sk-or-[A-Za-z0-9_-]{20,}$/,
+    test: async (cfg) => testGet('https://openrouter.ai/api/v1/key', { authorization: `Bearer ${cfg.providers.openrouter.apiKey}` }),
   },
   {
     key: 'anthropic', label: 'Anthropic', kind: 'provider', secret: 'providers.anthropic.apiKey',

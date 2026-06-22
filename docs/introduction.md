@@ -13,7 +13,7 @@ And you don't have to memorize commands: plain `afax` opens a **[natural-languag
 Tools like [GoHighLevel](https://www.gohighlevel.com/) prove that a single platform can replace a dozen marketing/sales SaaS subscriptions. Tools like [Polsia](https://polsia.com/) prove that AI agents can run real company operations end-to-end. AFAX takes both ideas and rebuilds them as something a developer actually wants:
 
 - **A CLI, not a dashboard.** Everything is scriptable, cronable, and composable.
-- **Local-first.** All state is plain JSON under `~/.afax/`. Nothing leaves your machine except the API calls you explicitly configure.
+- **Local-first.** All state lives under `~/.afax/` — a local SQLite database per workspace (built-in `node:sqlite`) plus plain-JSON config. Nothing leaves your machine except the API calls you explicitly configure.
 - **Your keys, your models.** Anthropic, any OpenAI-compatible endpoint (OpenAI, Groq, OpenRouter, vLLM, LM Studio…), or Ollama fully offline.
 - **Zero runtime dependencies.** Only the Node standard library. No `node_modules`, no supply-chain surface.
 - **Safe by default.** Every outbound action (email, posts, messages, deploys) is **dry-run** until you flip two explicit gates.
@@ -40,7 +40,7 @@ Above all of them sits the **orchestrator** (`afax run`): it reads the whole com
 
 1. **Honest scope.** Working features are documented as working; planned ones as planned. See the [roadmap](#/roadmap).
 2. **Everything is a command.** Flows, schedules and the orchestrator all compose the same CLI subcommands you type by hand.
-3. **State you can read.** Every collection is a human-readable JSON file. `cat` is a valid debugging tool.
+3. **State you own.** Every collection lives in a local SQLite DB per workspace (`records.db`) — query it with any SQLite tool, export it with `afax export`. Config stays plain JSON.
 4. **Two-gate safety.** A global `live` flag **and** a per-command `--live` flag must both be set before anything is sent externally. One gate is never enough.
 5. **Offline degradation.** Every command runs without an LLM key (templated output) so the structure of your company never blocks on a provider.
 

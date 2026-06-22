@@ -294,7 +294,7 @@
       <div class="head"><div><h1>Tasks</h1><p>Cada task é um objetivo. O worker prepara o trabalho real e deixa pronto pra sua aprovação — nada é enviado sozinho.</p></div><div style="display:flex;gap:8px"><button class="btn" id="runQueueBtn">▶ Rodar fila</button><button class="btn pri" id="newTaskBtn">+ New task</button></div></div>
       <div class="body-pad">
         <div class="grid g4" id="taskStats"></div>
-        <div class="sec-title">Aprovações · prontas pra enviar <span class="badge" id="apprCount" hidden>0</span></div>
+        <div class="sec-title" style="display:flex;align-items:center;gap:10px">Aprovações · prontas pra enviar <span class="badge" id="apprCount" hidden>0</span><span style="flex:1"></span><button class="btn pri" id="approveAllBtn" style="padding:4px 11px;font-size:12px" hidden>Aprovar tudo</button></div>
         <div id="approvals"><p class="muted" style="font-size:12px">Nada pendente.</p></div>
         <div class="sec-title">Automations · always on</div>
         <div class="grid g2" id="autos"></div>
@@ -531,6 +531,7 @@ function rsLabel(s){ return {queued:"na fila",running:"rodando…",awaiting_appr
 function loadApprovals(){
   j("/api/approvals").then(function(d){
     var items=d.items||[]; var badge=el("apprCount"); badge.hidden=!items.length; badge.textContent=items.length;
+    el("approveAllBtn").hidden=!items.length;
     if(!items.length){ el("approvals").innerHTML='<p class="muted" style="font-size:12px">Nada pendente.</p>'; return; }
     el("approvals").innerHTML=items.map(function(i){ return '<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><div style="font-weight:600;font-size:13px">'+esc(i.channel)+(i.to?' → '+esc(i.to):'')+'</div>'+(i.subject?'<div class="muted" style="font-size:12px">'+esc(i.subject)+'</div>':'')+'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(i.preview)+'</div></div><div style="display:flex;gap:6px;flex:none"><button class="btn pri" data-appr="'+i.id+'" style="padding:5px 11px;font-size:12px">Enviar</button><button class="btn" data-rej="'+i.id+'" style="padding:5px 11px;font-size:12px">Descartar</button></div></div></div>'; }).join("");
     document.querySelectorAll("#approvals [data-appr]").forEach(function(b){ b.onclick=function(){ b.disabled=true; b.textContent="Enviando…"; api("/api/approvals/"+b.dataset.appr+"/approve",{method:"POST"}).then(function(r){ toast(r&&r.ok?("Enviado (recibo "+(r.receipt||"ok")+")"):("Falhou: "+((r&&r.error)||"?"))); loadTasks(); }); }; });
@@ -538,6 +539,7 @@ function loadApprovals(){
   });
 }
 el("runQueueBtn").onclick=function(){ var b=el("runQueueBtn"); b.disabled=true; b.textContent="Rodando…"; api("/api/work/run",{method:"POST"}).then(function(r){ b.disabled=false; b.textContent="▶ Rodar fila"; toast((r&&r.ran||0)+" task(s) processada(s)"); loadTasks(); }); };
+el("approveAllBtn").onclick=function(){ var b=el("approveAllBtn"); b.disabled=true; b.textContent="Enviando…"; api("/api/approvals/approveall",{method:"POST"}).then(function(r){ b.disabled=false; b.textContent="Aprovar tudo"; toast("Enviados "+((r&&r.sent)||0)+(r&&r.failed?(" · "+r.failed+" falharam"):"")); loadTasks(); }); };
 el("newTaskBtn").onclick=function(){ el("scrim").classList.add("on"); el("tk_goal").focus(); };
 el("closeModal").onclick=el("cancelModal").onclick=function(){ el("scrim").classList.remove("on"); };
 el("scrim").onclick=function(e){ if(e.target===el("scrim")) el("scrim").classList.remove("on"); };

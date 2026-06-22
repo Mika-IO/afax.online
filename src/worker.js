@@ -37,6 +37,8 @@ export async function drain({ signal, quiet = false } = {}) {
       } else {
         update('tasks', t.id, { ...patch, status: 'done', runState: 'done' });
         if (!quiet) ok(`  Concluída.`);
+        const { emit } = await import('./events.js');
+        await emit('task.completed', { title: t.title, id: t.id });
       }
       ran++;
     } catch (e) {

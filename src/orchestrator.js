@@ -3,6 +3,7 @@
 import { chat } from './llm/index.js';
 import { load, hasLLM, workModel } from './config.js';
 import { read } from './store.js';
+import { emailStats, performanceLine } from './metrics.js';
 import { recall, remember } from './memory.js';
 import { tokenize } from './agents/automation.js';
 import { styleBlock } from './style.js';
@@ -22,6 +23,7 @@ export function snapshot() {
   const revenue = read('revenue', []);
   const expenses = read('expenses', []);
   const mrr = revenue.filter((r) => /sub|recur|month/i.test(r.type || '')).reduce((s, r) => s + (+r.amount || 0), 0);
+  const perf = emailStats();
   return {
     leads: leads.length,
     contacts: contacts.length,
@@ -35,6 +37,9 @@ export function snapshot() {
     revenue: revenue.reduce((s, r) => s + (+r.amount || 0), 0),
     expenses: expenses.reduce((s, e) => s + (+e.amount || 0), 0),
     mrr,
+    emailsSent: perf.sent,
+    openRate: perf.openRate,
+    replyRate: perf.replyRate,
   };
 }
 
@@ -81,46 +86,43 @@ export async function run(args) {
     return;
   }
 
-  const s = snapshot();
-  const mem = recall('orchestrator', 6).map((m) => m.text);
-  const stateText = Object.entries(s).map(([k, v]) => `${k}: ${v}`).join(', ');
-
-  const plan = await spin('Deciding next best actions', () =>
-    decide(stateText, mem, cfg)
-  );
-
-  if (!plan.actions?.length) {
-    info(plan.reasoning || 'Nothing to do right now.');
-    return;
-  }
-
-  log('  ' + c.dim(plan.reasoning || ''));
-  log('');
-  plan.actions.forEach((a, i) =>
-    log(`  ${c.orange(i + 1 + '.')} ${c.bold(a.command)}   ${c.dim('— ' + (a.why || ''))}`)
-  );
-  log('');
-
+  // Plan-only mode: decide once and show it.
   if (!execute) {
-    info(`Review above. Execute with: ${c.cyan('afax run --execute')}  (or set autonomy: afax config set autonomy execute)`);
+    const s = snapshot();
+    const mem = recall('orchestrator', 6).map((m) => m.text);
+    const plan = await spin('Deciding next best actions', () => decide(stateLine(s), mem, cfg));
+    if (!plan.actions?.length) return info(plan.reasoning || 'Nothing to do right now.');
+    log('  ' + c.dim(plan.reasoning || ''));
+    log('');
+    plan.actions.forEach((a, i) => log(`  ${c.orange(i + 1 + '.')} ${c.bold(a.command)}   ${c.dim('— ' + (a.why || ''))}`));
+    log('');
+    info(`Execute with: ${c.cyan('afax run --execute')}  (or set autonomy: afax config set autonomy execute)`);
     remember('orchestrator', `Proposed: ${plan.actions.map((a) => a.command).join(' | ')}`);
     return;
   }
 
-  // Execute (with safety cap).
-  const max = Math.min(parseInt(args.steps || '4', 10) || 4, plan.actions.length);
+  // Execute with REPLANNING: decide → act → observe fresh state → decide again,
+  // up to `cycles`. Each cycle records the outcome so future runs (and the next
+  // cycle) reason from what actually moved the numbers, not just counts.
+  const cycles = Math.min(parseInt(args.cycles || '1', 10) || 1, 5);
+  const stepsPerCycle = Math.min(parseInt(args.steps || '3', 10) || 3, 5);
   const { dispatch } = await import('./cli.js');
-  for (let i = 0; i < max; i++) {
-    const a = plan.actions[i];
-    step(`Executing ${i + 1}/${max}: ${a.command}`);
-    try {
-      await dispatch(tokenize(a.command));
-    } catch (e) {
-      warn(`Action failed: ${e.message}`);
+  for (let cyc = 0; cyc < cycles; cyc++) {
+    const before = snapshot();
+    const mem = recall('orchestrator', 6).map((m) => m.text);
+    const plan = await spin(cycles > 1 ? `Deciding (cycle ${cyc + 1}/${cycles})` : 'Deciding next best actions', () => decide(stateLine(before), mem, cfg));
+    if (!plan.actions?.length) { info(plan.reasoning || 'Nothing left to do.'); break; }
+    log('  ' + c.dim(plan.reasoning || ''));
+    const acts = plan.actions.slice(0, stepsPerCycle);
+    for (const a of acts) {
+      step(`Executing: ${a.command}`);
+      try { await dispatch(tokenize(a.command)); } catch (e) { warn(`Action failed: ${e.message}`); }
     }
+    // Observe what moved, and remember it (long-horizon, performance-aware memory).
+    const after = snapshot();
+    remember('orchestrator', `Ran [${acts.map((a) => a.command).join(' | ')}] → ${deltaLine(before, after)}`);
     log('');
   }
-  remember('orchestrator', `Executed ${max} actions: ${plan.actions.slice(0, max).map((a) => a.command).join(' | ')}`);
   ok('Run complete.');
 }
 
@@ -131,9 +133,7 @@ export async function run(args) {
 export async function executeGoal(goal, { signal, max = 5 } = {}) {
   if (!hasLLM()) throw new Error('No LLM configured (afax init).');
   const cfg = load();
-  const s = snapshot();
-  const stateText = Object.entries(s).map(([k, v]) => `${k}: ${v}`).join(', ');
-  const plan = await decideGoal(goal, stateText, cfg);
+  const plan = await decideGoal(goal, stateLine(snapshot()), cfg);
   const log = [];
   const { dispatch } = await import('./cli.js');
   const actions = (plan.actions || []).slice(0, max);
@@ -202,9 +202,12 @@ async function decide(stateText, mem, cfg) {
   ];
   const { json } = await chat({
     system:
-      'You are the AFAX orchestrator running an autonomous company. Given the current state, choose the 2-4 ' +
-      'highest-leverage next actions to grow revenue. Only use the available commands verbatim with concrete arguments. ' +
-      'Prefer actions that compound. Respond JSON: {"reasoning":"<1 sentence>","actions":[{"command":"<exact afax subcommand>","why":"<short>"}]}\n\n' +
+      'You are the AFAX orchestrator running an autonomous company. Given the current state AND the real performance funnel, ' +
+      'choose the 2-4 highest-leverage next actions to grow revenue. Decide from PERFORMANCE, not vanity counts: fix the weakest ' +
+      'funnel stage (e.g. low reply rate → better outreach/segmentation; low open rate → subject lines; no leads → source more), ' +
+      'and double down on whatever is already converting. Recent-actions memory shows what past moves did to the numbers — learn from it. ' +
+      'Only use the available commands verbatim with concrete arguments. ' +
+      'Respond JSON: {"reasoning":"<1 sentence>","actions":[{"command":"<exact afax subcommand>","why":"<short>"}]}\n\n' +
       styleBlock(cfg) + '\n(The "reasoning" and "why" fields follow these language and style rules; commands stay literal.)',
     messages: [
       {
@@ -225,3 +228,14 @@ async function decide(stateText, mem, cfg) {
 }
 
 const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US');
+
+// State for the decider: raw counts + the real performance funnel.
+function stateLine(s) {
+  return Object.entries(s).map(([k, v]) => `${k}: ${v}`).join(', ') + ` | ${performanceLine()}`;
+}
+// What moved between two snapshots — the outcome we remember.
+function deltaLine(a, b) {
+  const keys = ['emailsSent', 'openRate', 'replyRate', 'leads', 'contacts', 'wonValue', 'revenue', 'content', 'campaigns'];
+  const parts = keys.map((k) => (b[k] !== a[k] ? `${k} ${a[k]}→${b[k]}` : null)).filter(Boolean);
+  return parts.length ? parts.join(', ') : 'no measurable change';
+}

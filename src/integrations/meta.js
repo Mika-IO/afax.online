@@ -43,9 +43,8 @@ export async function instagramPublish({ imageUrl, caption }) {
   });
 }
 
-// Create a paid-ads campaign (paused) + ad set with a daily budget via the
-// Marketing API. Returns ids; creative/targeting finalized in Ads Manager.
-export async function adsCreateCampaign({ name, objective = 'OUTCOME_TRAFFIC', dailyBudget = 10, countries = ['US'] }) {
+// Create a paid-ads campaign (paused) + ad set with a daily budget + targeting.
+export async function adsCreateCampaign({ name, objective = 'OUTCOME_TRAFFIC', dailyBudget = 10, countries = ['US'], ageMin = 18, ageMax = 65 }) {
   const { m, url } = base();
   if (!m.accessToken || !m.adAccountId) throw new Error('Meta ads: need accessToken + adAccountId.');
   const act = `${url}/act_${m.adAccountId}`;
@@ -62,12 +61,56 @@ export async function adsCreateCampaign({ name, objective = 'OUTCOME_TRAFFIC', d
       billing_event: 'IMPRESSIONS',
       optimization_goal: 'LINK_CLICKS',
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-      targeting: JSON.stringify({ geo_locations: { countries } }),
+      targeting: JSON.stringify({ geo_locations: { countries }, age_min: ageMin, age_max: ageMax }),
       status: 'PAUSED',
       access_token: m.accessToken,
     },
   });
   return { campaignId: campaign.id, adsetId: adset.id };
+}
+
+// Create an ad creative from copy + a link (and optional image URL), tied to the
+// Facebook Page. This is what makes the ad actually runnable, not an empty shell.
+export async function adsCreateCreative({ name, message, headline, link, imageUrl }) {
+  const { m, url } = base();
+  if (!m.accessToken || !m.adAccountId) throw new Error('Meta ads: need accessToken + adAccountId.');
+  if (!m.pageId) throw new Error('Meta ads: need a pageId for the ad creative.');
+  const link_data = {
+    message: message || '',
+    link: link || (m.pageId ? `https://facebook.com/${m.pageId}` : 'https://example.com'),
+    name: headline || '',
+    call_to_action: { type: 'LEARN_MORE' },
+    ...(imageUrl ? { picture: imageUrl } : {}),
+  };
+  const creative = await http(`${url}/act_${m.adAccountId}/adcreatives`, {
+    method: 'POST',
+    form: {
+      name: name || 'AFAX creative',
+      object_story_spec: JSON.stringify({ page_id: m.pageId, link_data }),
+      access_token: m.accessToken,
+    },
+  });
+  return { creativeId: creative.id };
+}
+
+// Create the ad (PAUSED) that ties a creative to an ad set.
+export async function adsCreateAd({ name, adsetId, creativeId }) {
+  const { m, url } = base();
+  if (!m.accessToken || !m.adAccountId) throw new Error('Meta ads: need accessToken + adAccountId.');
+  const ad = await http(`${url}/act_${m.adAccountId}/ads`, {
+    method: 'POST',
+    form: { name: name || 'AFAX ad', adset_id: adsetId, creative: JSON.stringify({ creative_id: creativeId }), status: 'PAUSED', access_token: m.accessToken },
+  });
+  return { adId: ad.id };
+}
+
+// Read performance insights for a campaign/adset/ad (spend, impressions, clicks…).
+export async function adsInsights({ id, datePreset = 'last_7d' }) {
+  const { m, url } = base();
+  if (!m.accessToken) throw new Error('Meta ads: need accessToken.');
+  const fields = 'impressions,clicks,spend,ctr,cpc,reach,actions';
+  const r = await http(`${url}/${id}/insights?date_preset=${datePreset}&fields=${fields}&access_token=${encodeURIComponent(m.accessToken)}`, { method: 'GET' });
+  return (r.data && r.data[0]) || {};
 }
 
 // Send a WhatsApp message via the Cloud API.

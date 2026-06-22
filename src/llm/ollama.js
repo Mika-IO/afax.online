@@ -3,8 +3,9 @@ import { http } from '../integrations/http.js';
 import { streamPost } from './stream.js';
 
 export async function chat({ model, baseUrl, system, messages, temperature, maxTokens, onToken, signal }) {
+  const sysText = Array.isArray(system) ? system.map((b) => b.text).filter(Boolean).join('\n') : (system || '');
   const msgs = [];
-  if (system) msgs.push({ role: 'system', content: system });
+  if (sysText) msgs.push({ role: 'system', content: sysText });
   for (const m of messages) msgs.push({ role: m.role, content: m.content });
 
   const usageOf = (d) => ({ input: d?.prompt_eval_count || 0, output: d?.eval_count || 0 });

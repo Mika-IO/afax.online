@@ -5,7 +5,8 @@ import { chat as anthropic } from './anthropic.js';
 import { chat as openai } from './openai.js';
 import { chat as ollama } from './ollama.js';
 
-const PROVIDERS = { anthropic, openai, ollama };
+// OpenRouter speaks the OpenAI Chat Completions API, so it reuses that adapter.
+const PROVIDERS = { anthropic, openai, ollama, openrouter: openai };
 
 /**
  * chat({ system, messages, json, temperature, maxTokens, onToken })
@@ -20,9 +21,11 @@ export async function chat(opts) {
 
   assertBudget(); // refuse the call if the monthly cap is already hit
 
-  const system = opts.json
-    ? `${opts.system || ''}\n\nRespond with valid minified JSON only. No markdown, no prose, no code fences.`.trim()
-    : opts.system;
+  // System may be a string OR an array of cache-marked blocks
+  // [{ text, cache }] — putting the large STATIC content (cache:true) first and
+  // the per-call DYNAMIC content (snapshot/memory) last lets prompt caching
+  // (Anthropic cache_control + OpenAI's automatic prefix cache) actually hit.
+  const system = normalizeSystem(opts.system, opts.json);
 
   const model = opts.model || p.model;
   const res = await impl({
@@ -44,6 +47,21 @@ export async function chat(opts) {
 
   if (opts.json) return { text, json: parseJSON(text), usage };
   return { text, usage };
+}
+
+// Normalize a system prompt to an array of { text, cache } blocks. The JSON
+// instruction is appended to the LAST (dynamic) block so it never disturbs the
+// cached static prefix.
+function normalizeSystem(system, json) {
+  let blocks = Array.isArray(system)
+    ? system.map((b) => ({ text: String(b.text || ''), cache: !!b.cache })).filter((b) => b.text)
+    : (system ? [{ text: String(system), cache: false }] : []);
+  if (json) {
+    const tail = '\n\nRespond with valid minified JSON only. No markdown, no prose, no code fences.';
+    if (blocks.length) blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], text: (blocks[blocks.length - 1].text + tail).trim() };
+    else blocks = [{ text: tail.trim(), cache: false }];
+  }
+  return blocks;
 }
 
 // Tolerant JSON extraction — strips fences / surrounding prose if a model adds them.

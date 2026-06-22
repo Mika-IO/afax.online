@@ -212,3 +212,64 @@ test('workModel: cheaper model for agent work', async () => {
   const m = workModel();
   assert.ok(typeof m === 'string' && m.length > 0);
 });
+
+// --- outreach template-merge (scale) -----------------------------------------
+
+test('outreach: merge vars + spintax render locally (no LLM per email)', async () => {
+  const { _internals } = await import('../src/agents/outreach.js');
+  const { mergeVars, spintax, renderForLead, whereFilter } = _internals;
+  // merge
+  assert.equal(mergeVars('Hi {{first_name}} at {{company}}', { name: 'Jane Doe', company: 'Acme' }), 'Hi Jane at Acme');
+  // unknown token → empty
+  assert.equal(mergeVars('x{{nope}}y', { name: 'A' }), 'xy');
+  // spintax resolves and is stable per seed
+  const a = spintax('{Hi|Hey|Hello} there', 'seed1');
+  assert.ok(['Hi there', 'Hey there', 'Hello there'].includes(a));
+  assert.equal(spintax('{Hi|Hey} x', 'seed1'), spintax('{Hi|Hey} x', 'seed1'));
+  // full render leaves no literal tokens
+  const out = renderForLead('{Oi|Olá} {{first_name}}, {{company}}', { id: 'L1', name: 'Bob Silva', company: 'BobCo' });
+  assert.ok(!/\{\{|\|/.test(out));
+  assert.ok(out.includes('Bob') && out.includes('BobCo'));
+  // segment filter
+  const f = whereFilter('signal~pos,title=ceo');
+  assert.ok(f({ signal: 'seeking POS integrations', title: 'CEO' }));
+  assert.ok(!f({ signal: 'nope', title: 'CEO' }));
+});
+
+test('deliverability: suppress + footer compliance', async () => {
+  const { suppress, isSuppressed, withFooter } = await import('../src/deliverability.js');
+  useWorkspace('deliver-co');
+  assert.equal(isSuppressed('a@b.com'), false);
+  assert.equal(suppress(['A@b.com', 'a@b.com'], 'unsubscribe'), 1); // dedup + normalize
+  assert.equal(isSuppressed('a@b.com'), true);
+  assert.equal(suppress('a@b.com'), 0); // already there
+  const body = withFooter('Hi there', 'x@y.com');
+  assert.match(body, /STOP|unsubscribe/i);
+  // doesn't double-append if one already present
+  assert.equal(withFooter(body, 'x@y.com'), body);
+});
+
+test('automation: conditional step branching', async () => {
+  const { parseStep, evalCondition, matches } = await import('../src/events.js');
+  assert.deepEqual(parseStep('?score>=70? sales sequence --deal X'), { cond: 'score>=70', cmd: 'sales sequence --deal X' });
+  assert.deepEqual(parseStep('plain command'), { cond: null, cmd: 'plain command' });
+  assert.equal(evalCondition('score>=70', { score: 80 }), true);
+  assert.equal(evalCondition('score>=70', { score: 50 }), false);
+  assert.equal(evalCondition('stage=demo', { stage: 'demo' }), true);
+  assert.equal(evalCondition('signal~POS', { signal: 'wants POS integration' }), true);
+  assert.equal(evalCondition('count!=0', { count: 3 }), true);
+  // new triggers wired
+  assert.ok(matches('content.created', 'new content'));
+  assert.ok(matches('task.completed', 'task done'));
+});
+
+test('openrouter: detection + provider wiring', async () => {
+  const { detect } = await import('../src/integrations/catalog.js');
+  assert.equal(detect('sk-or-v1-abcdef1234567890abcdef').key, 'openrouter');
+  assert.equal(detect('sk-proj-abcdefghij1234567890').key, 'openai'); // still openai, not openrouter
+  const { DEFAULTS } = await import('../src/config.js');
+  assert.equal(DEFAULTS.providers.openrouter.baseUrl, 'https://openrouter.ai/api/v1');
+  const { workModel } = await import('../src/config.js');
+  // workModel resolves for the active provider; just ensure it returns a string
+  assert.ok(typeof workModel() === 'string');
+});

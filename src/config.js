@@ -10,6 +10,7 @@ const GLOBAL_DEFAULTS = {
   providers: {
     anthropic: { apiKey: '', model: 'claude-sonnet-4-6', baseUrl: 'https://api.anthropic.com' },
     openai: { apiKey: '', model: 'gpt-4o', baseUrl: 'https://api.openai.com/v1' },
+    openrouter: { apiKey: '', model: 'openai/gpt-4o-mini', baseUrl: 'https://openrouter.ai/api/v1' },
     ollama: { apiKey: '', model: 'llama3.1', baseUrl: 'http://localhost:11434' },
   },
   autonomy: 'suggest',
@@ -21,7 +22,7 @@ const GLOBAL_DEFAULTS = {
 const WS_DEFAULTS = {
   business: { name: '', icp: '', offer: '', tone: 'direct, confident, helpful', website: '', language: '' },
   integrations: {
-    email: { driver: 'resend', from: '', apiKey: '', host: '', port: 465, user: '', pass: '' },
+    email: { driver: 'resend', from: '', apiKey: '', host: '', port: 465, user: '', pass: '', dailyCap: 0, minDelayMs: 0, senders: [], warmup: { startedAt: '', perDayStart: 20, perDayMax: 200, rampDays: 14 } },
     meta: { accessToken: '', graphVersion: 'v21.0', pageId: '', igUserId: '', whatsappPhoneId: '', adAccountId: '' },
     telegram: { botToken: '', chatId: '' },
     slack: { webhookUrl: '', botToken: '' },
@@ -56,6 +57,8 @@ export function load() {
   if (process.env.ANTHROPIC_API_KEY) p.anthropic.apiKey = process.env.ANTHROPIC_API_KEY;
   if (process.env.OPENAI_API_KEY) p.openai.apiKey = process.env.OPENAI_API_KEY;
   if (process.env.OPENAI_BASE_URL) p.openai.baseUrl = process.env.OPENAI_BASE_URL;
+  if (process.env.OPENROUTER_API_KEY) { p.openrouter.apiKey = process.env.OPENROUTER_API_KEY; if (!process.env.AFAX_PROVIDER && !cache.providers[cache.provider]?.apiKey) cache.provider = 'openrouter'; }
+  if (process.env.OPENROUTER_MODEL) p.openrouter.model = process.env.OPENROUTER_MODEL;
   if (process.env.AFAX_PROVIDER) cache.provider = process.env.AFAX_PROVIDER;
   if (process.env.AFAX_MODEL && p[cache.provider]) p[cache.provider].model = process.env.AFAX_MODEL;
 
@@ -109,7 +112,7 @@ export function activeProvider(cfg = load()) {
 // Cheaper model for high-volume agent WORK (drafting, prospect, orchestrator,
 // segmentation, the background worker). The full `model` stays for interactive
 // chat. Override per provider with providers.<name>.workModel.
-const WORK_MODELS = { openai: 'gpt-5-mini', anthropic: 'claude-haiku-4-5-20251001', ollama: null };
+const WORK_MODELS = { openai: 'gpt-5-mini', anthropic: 'claude-haiku-4-5-20251001', openrouter: 'openai/gpt-4o-mini', ollama: null };
 export function workModel(cfg = load()) {
   const p = activeProvider(cfg);
   return p.workModel || WORK_MODELS[p.name] || p.model;

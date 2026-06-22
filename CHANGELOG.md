@@ -12,6 +12,65 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 "dry-run"; synthetic leads are gone; marketing channels actually do something.
 
 ### Added
+- **OpenRouter provider (first-class).** Paste an `sk-or-…` key (smart-paste
+  auto-detects and routes it) or set `OPENROUTER_API_KEY`; `afax config set
+  provider openrouter` to use any of OpenRouter's models (`anthropic/claude-3.5-sonnet`,
+  `openai/gpt-4o-mini`, …). Reuses the OpenAI-compatible adapter with OpenRouter
+  ranking headers; agent work runs on the cheaper `openai/gpt-4o-mini`.
+  (`src/config.js`, `src/llm/index.js`, `src/llm/openai.js`,
+  `src/integrations/catalog.js`, `src/init.js`)
+- **Campaigns are executed multi-touch sequences (+ measured A/B).** `marketing
+  campaign --steps N --days 0,3,6 [--where seg] [--ab]` designs the touch
+  templates in one call and schedules each to draft real outreach on its day;
+  `--ab` splits two subjects over the same audience; `marketing campaign report
+  <id>` declares the winner. (`src/agents/marketing.js`, `src/agents/outreach.js`)
+- **Sales: scoring, forecast, sequences.** `sales score` (deterministic 0-100 from
+  stage+size+recency), `sales forecast` (probability-weighted pipeline), `sales
+  sequence --deal X` (scheduled follow-up cadence). (`src/agents/sales.js`)
+- **Automation: conditional branching + more triggers.** Flow steps can be guarded
+  `?field op value? command`; new `content.created` / `task.completed` events.
+  (`src/events.js`)
+- **CRM: engagement scoring.** `crm score` ranks contacts 0-100 from real email
+  engagement (reply/click/open) + stage. (`src/agents/crm.js`)
+- **Feedback loop / metrics.** Email outcomes (delivered/opened/clicked via the
+  Resend webhook, replies via inbound) now flow back onto each message; `afax
+  metrics` shows the funnel + cost-per-outcome; the orchestrator snapshot carries
+  the real rates. (`src/metrics.js`, `src/server.js`)
+- **Performance-driven orchestrator.** `afax run --execute` decides from the real
+  funnel (fix the weakest stage, double down on what converts), replans across
+  `--cycles`, and records each before→after metric delta to memory. (`src/orchestrator.js`)
+- **Content: SEO + repurpose + calendar.** `content blog` is SEO-structured
+  (keyword/title/meta/slug/H2/internal links); `content repurpose <id>` fans one
+  source into a multi-channel pack in ONE LLM call; `content plan` drafts a dated
+  calendar and schedules real generation; `content calendar` shows it. (`src/agents/content.js`)
+- **Email warmup + sender rotation.** A from-address pool round-robined across
+  sends/batches, and a warmup ramp (`effectiveDailyCap`) that climbs the daily cap
+  over `rampDays`. `afax email warmup start`, `afax email senders add`.
+  (`src/integrations/email.js`, `src/deliverability.js`, `src/agents/mailer.js`)
+- **Real ad management.** `marketing ads` now generates a full unit (objective +
+  audience + targeting + headline + primary text) and, live, creates the whole
+  chain — campaign → ad set (targeting) → creative (copy+link) → ad (PAUSED) — not
+  an empty shell; `marketing ads insights <id>` reads live results. (`src/integrations/meta.js`,
+  `src/agents/marketing.js`)
+- **Deliverability layer.** A suppression list (opt-outs/bounces/complaints), a
+  compliant unsubscribe footer on every cold email, a `GET /unsubscribe` one-click
+  endpoint, a `POST /webhook/resend` handler that suppresses bounces/complaints,
+  STOP-reply opt-out, a per-day send cap (`integrations.email.dailyCap`) and a
+  throttle between batches (`integrations.email.minDelayMs`). Outreach and
+  `approve --all` skip suppressed addresses. `afax suppress list|<email>`.
+  (`src/deliverability.js`, `src/agents/outreach.js`, `src/approvals.js`,
+  `src/integrations/email.js`, `src/server.js`)
+- **Outreach that scales (template + merge, not one LLM call per email).** Outreach
+  now writes ONE template per segment (a single LLM call — or zero with
+  `--template`) and mail-merges it locally for every lead: `{{first_name}}`,
+  `{{company}}`, `{{title}}`, `{{signal}}` + `{spintax|variation}`. N emails ≈ 1
+  call instead of N. New flags: `--where` (segment), `--personalize` (one batched
+  AI icebreaker for the whole run), `--template`/`--subject`. (`src/agents/outreach.js`)
+- **Batch approve + batch send.** `afax approve --all` (and panel **Aprovar tudo**)
+  sends every pending email through Resend's batch API (100 per HTTP call, 0 LLM
+  calls), records a receipt per message, flips leads to `contacted`.
+  (`src/approvals.js`, `src/integrations/email.js` `sendBatch`, `src/web.js`,
+  `src/web.page.html`)
 - **Background task worker.** `afax work` (and the `afax cloud` heartbeat) drains
   queued tasks: each task is a natural-language GOAL run through a new
   goal-driven orchestrator (`executeGoal`), which picks real commands and runs
@@ -27,6 +86,28 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 - **Tasks & Approvals docs** (`docs/tasks.md`).
 
 ### Changed
+- **Storage is now SQLite (built-in `node:sqlite`, still zero-dependency).** Each
+  workspace gets a local `records.db`; inserts/updates/deletes are indexed and
+  O(1)/O(log n) instead of rewriting a whole JSON file, and worker + chat can
+  write concurrently (WAL + busy timeout). Existing `*.json` collections are
+  migrated automatically on first open and kept as `*.json.bak` backups. The
+  `store.js` API is unchanged, so callers didn't move. **Requires Node ≥ 22.5.**
+  (`src/db.js`, `src/store.js`, `src/data.js`)
+- **Prompt caching that actually hits.** System prompts are now built as
+  static-first / dynamic-last blocks: the big stable part (identity, tool list,
+  command catalog, rules, style) comes first and the per-call bits (snapshot,
+  memory, connections) go last. The static block is marked cacheable, so
+  Anthropic re-reads it at ~0.1x via `cache_control` and OpenAI's automatic
+  prefix cache (~0.5x) kicks in too — instead of the previous layout where the
+  dynamic content sat near the top and defeated caching entirely. `chat()` accepts
+  `system` as `[{text,cache}]` blocks; all three adapters handle it. (`src/llm/index.js`,
+  `src/llm/anthropic.js`, `src/llm/openai.js`, `src/llm/ollama.js`, `src/chat.js`,
+  `src/agents/base.js`)
+- **O(n) writes at scale.** Outreach and `approve --all` no longer rewrite a whole
+  collection file per record (was O(n²) — at 56k leads each send rewrote the 1MB
+  file). Records are accumulated and flushed once per collection via a new
+  `addMany()`; lead-status flips and CRM notes are batched too. (`src/store.js`,
+  `src/agents/outreach.js`, `src/approvals.js`)
 - **No more fake sends.** The outbound choke-point (`registry.guarded`) no longer
   returns `{ok:true, dryRun:true}`. It's either a real send (`sent:true` + receipt)
   or `pending:true, sent:false` (prepared, NOT sent). Every caller (outreach,
