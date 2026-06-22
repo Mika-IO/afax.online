@@ -12,6 +12,26 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 "dry-run"; synthetic leads are gone; marketing channels actually do something.
 
 ### Added
+- **Feedback loop / metrics.** Email outcomes (delivered/opened/clicked via the
+  Resend webhook, replies via inbound) now flow back onto each message; `afax
+  metrics` shows the funnel + cost-per-outcome; the orchestrator snapshot carries
+  the real rates. (`src/metrics.js`, `src/server.js`)
+- **Performance-driven orchestrator.** `afax run --execute` decides from the real
+  funnel (fix the weakest stage, double down on what converts), replans across
+  `--cycles`, and records each before→after metric delta to memory. (`src/orchestrator.js`)
+- **Content: SEO + repurpose + calendar.** `content blog` is SEO-structured
+  (keyword/title/meta/slug/H2/internal links); `content repurpose <id>` fans one
+  source into a multi-channel pack in ONE LLM call; `content plan` drafts a dated
+  calendar and schedules real generation; `content calendar` shows it. (`src/agents/content.js`)
+- **Email warmup + sender rotation.** A from-address pool round-robined across
+  sends/batches, and a warmup ramp (`effectiveDailyCap`) that climbs the daily cap
+  over `rampDays`. `afax email warmup start`, `afax email senders add`.
+  (`src/integrations/email.js`, `src/deliverability.js`, `src/agents/mailer.js`)
+- **Real ad management.** `marketing ads` now generates a full unit (objective +
+  audience + targeting + headline + primary text) and, live, creates the whole
+  chain — campaign → ad set (targeting) → creative (copy+link) → ad (PAUSED) — not
+  an empty shell; `marketing ads insights <id>` reads live results. (`src/integrations/meta.js`,
+  `src/agents/marketing.js`)
 - **Deliverability layer.** A suppression list (opt-outs/bounces/complaints), a
   compliant unsubscribe footer on every cold email, a `GET /unsubscribe` one-click
   endpoint, a `POST /webhook/resend` handler that suppresses bounces/complaints,
