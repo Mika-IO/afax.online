@@ -30,7 +30,9 @@ export async function sendBatch(messages) {
   if (!e.apiKey) throw new Error('Missing Resend API key.');
   if (!e.from) throw new Error('No sender. Set integrations.email.from.');
   const out = [];
+  const delay = Math.max(0, Number(e.minDelayMs || 0));
   for (let i = 0; i < messages.length; i += 100) {
+    if (i > 0 && delay) await new Promise((r) => setTimeout(r, delay)); // throttle between batches
     const chunk = messages.slice(i, i + 100);
     const payload = chunk.map((m) => ({ from: e.from, to: [m.to], subject: m.subject || 'Hello', text: m.text }));
     try {

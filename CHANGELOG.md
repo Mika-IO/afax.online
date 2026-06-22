@@ -12,6 +12,14 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 "dry-run"; synthetic leads are gone; marketing channels actually do something.
 
 ### Added
+- **Deliverability layer.** A suppression list (opt-outs/bounces/complaints), a
+  compliant unsubscribe footer on every cold email, a `GET /unsubscribe` one-click
+  endpoint, a `POST /webhook/resend` handler that suppresses bounces/complaints,
+  STOP-reply opt-out, a per-day send cap (`integrations.email.dailyCap`) and a
+  throttle between batches (`integrations.email.minDelayMs`). Outreach and
+  `approve --all` skip suppressed addresses. `afax suppress list|<email>`.
+  (`src/deliverability.js`, `src/agents/outreach.js`, `src/approvals.js`,
+  `src/integrations/email.js`, `src/server.js`)
 - **Outreach that scales (template + merge, not one LLM call per email).** Outreach
   now writes ONE template per segment (a single LLM call — or zero with
   `--template`) and mail-merges it locally for every lead: `{{first_name}}`,

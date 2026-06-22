@@ -7,6 +7,7 @@
 import { read, write, update, add, addMany, find } from './store.js';
 import { deliverDm, deliverPublish } from './integrations/registry.js';
 import { sendBatch, EMAIL_RE } from './integrations/email.js';
+import { suppressedSet } from './deliverability.js';
 
 // Everything awaiting a human decision: drafted but not sent, not rejected.
 export function pending() {
@@ -46,8 +47,13 @@ export async function approveAll({ limit = 100000 } = {}) {
   const now = () => new Date().toISOString();
 
   // Emails → Resend batch; mutate records in memory, flush once at the end.
-  const valid = emails.filter((m) => EMAIL_RE.test(String(m.to)));
-  for (const m of emails) if (!EMAIL_RE.test(String(m.to))) { m.error = 'invalid recipient'; failed++; }
+  const supp = suppressedSet();
+  const valid = [];
+  for (const m of emails) {
+    if (!EMAIL_RE.test(String(m.to))) { m.error = 'invalid recipient'; failed++; }
+    else if (supp.has(String(m.to).toLowerCase())) { m.error = 'suppressed (opt-out/bounce)'; m.pending = false; m.rejected = true; failed++; }
+    else valid.push(m);
+  }
   if (valid.length) {
     let res = null;
     try { res = await sendBatch(valid.map((m) => ({ to: m.to, subject: m.subject, text: m.body }))); }

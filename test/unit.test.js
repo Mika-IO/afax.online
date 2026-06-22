@@ -235,3 +235,16 @@ test('outreach: merge vars + spintax render locally (no LLM per email)', async (
   assert.ok(f({ signal: 'seeking POS integrations', title: 'CEO' }));
   assert.ok(!f({ signal: 'nope', title: 'CEO' }));
 });
+
+test('deliverability: suppress + footer compliance', async () => {
+  const { suppress, isSuppressed, withFooter } = await import('../src/deliverability.js');
+  useWorkspace('deliver-co');
+  assert.equal(isSuppressed('a@b.com'), false);
+  assert.equal(suppress(['A@b.com', 'a@b.com'], 'unsubscribe'), 1); // dedup + normalize
+  assert.equal(isSuppressed('a@b.com'), true);
+  assert.equal(suppress('a@b.com'), 0); // already there
+  const body = withFooter('Hi there', 'x@y.com');
+  assert.match(body, /STOP|unsubscribe/i);
+  // doesn't double-append if one already present
+  assert.equal(withFooter(body, 'x@y.com'), body);
+});

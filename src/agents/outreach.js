@@ -6,6 +6,7 @@
 import { Agent } from './base.js';
 import { read, write, addMany } from '../store.js';
 import { isLive } from '../config.js';
+import { suppressedSet, isSuppressed, remainingToday, withFooter } from '../deliverability.js';
 import * as registry from '../integrations/registry.js';
 import { c, header, table, ok, info, warn, spin, log, dim } from '../logger.js';
 
@@ -30,12 +31,23 @@ export async function cmd(args, { signal } = {}) {
   const live = !!args.live;
   const personalize = !!args.personalize;
 
+  const supp = suppressedSet();
   let leads = read('leads', []).filter((l) => (args.status ? l.status === args.status : l.status !== 'contacted'));
   if (args.where) leads = leads.filter(whereFilter(args.where));
-  leads = leads.slice(0, limit);
+  // Deliverability: never contact opted-out / bounced addresses.
+  const beforeSupp = leads.length;
+  if (channel === 'email') leads = leads.filter((l) => !isSuppressed(l.email, supp));
+  const suppressed = beforeSupp - leads.length;
+  // Respect the per-day send cap (email only).
+  const cap = channel === 'email' ? remainingToday() : Infinity;
+  const room = Math.min(limit, cap);
+  const capped = leads.length > room;
+  leads = leads.slice(0, room);
 
   header(`${agent.emoji} Outreach`, `${channel} · ${leads.length} lead(s) · ${live ? (isLive() ? c.green('LIVE') : c.yellow('--live mas config.live=false → não envia')) : c.dim('preparação (não envia)')}`);
-  if (!leads.length) return info('No leads to contact. Run: afax prospect source <domain>  or  afax prospect import leads.csv');
+  if (suppressed) dim(`  ${suppressed} pulado(s) (opt-out/bounce)`);
+  if (capped) dim(`  limitado pelo cap diário (restam ${cap} hoje)`);
+  if (!leads.length) return info(cap === 0 ? 'Cap diário de envio atingido.' : 'No leads to contact. Run: afax prospect source <domain>  or  afax prospect import leads.csv');
 
   // 1) Get ONE template — provided verbatim, or generated in a single LLM call.
   let tpl, llmCalls = 0;
@@ -65,8 +77,9 @@ export async function cmd(args, { signal } = {}) {
     const lead = leads[i];
     const extra = { icebreaker: lines[i] || '' };
     const subject = renderForLead(tpl.subject, lead, extra);
-    const body = renderForLead(tpl.body, lead, extra);
     const target = channel === 'email' ? lead.email : lead.phone || lead.email;
+    let body = renderForLead(tpl.body, lead, extra);
+    if (channel === 'email') body = withFooter(body, target);   // compliant unsubscribe
 
     const sent = await registry.dm({ platform: channel, to: target, subject, text: body, live });
     newMessages.push({

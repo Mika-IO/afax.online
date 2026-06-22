@@ -21,7 +21,7 @@ const GLOBAL_DEFAULTS = {
 const WS_DEFAULTS = {
   business: { name: '', icp: '', offer: '', tone: 'direct, confident, helpful', website: '', language: '' },
   integrations: {
-    email: { driver: 'resend', from: '', apiKey: '', host: '', port: 465, user: '', pass: '' },
+    email: { driver: 'resend', from: '', apiKey: '', host: '', port: 465, user: '', pass: '', dailyCap: 0, minDelayMs: 0 },
     meta: { accessToken: '', graphVersion: 'v21.0', pageId: '', igUserId: '', whatsappPhoneId: '', adAccountId: '' },
     telegram: { botToken: '', chatId: '' },
     slack: { webhookUrl: '', botToken: '' },

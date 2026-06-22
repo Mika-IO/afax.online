@@ -176,6 +176,9 @@ export async function dispatch(argv, ctx = {}) {
     case 'approve':
     case 'reject':
       return approvalsCmd(cmd, args);
+    case 'suppress':
+    case 'suppressions':
+      return suppressCmd(args);
     default:
       warn(`Unknown command: ${cmd}`);
       log(`Run ${c.cyan('afax help')} for the command list.`);
@@ -254,6 +257,21 @@ async function approvalsCmd(cmd, args) {
   const r = await approve(id);
   if (r.ok) ok(`Enviado de verdade ${id} (recibo ${r.receipt}).`);
   else warn(`Falhou: ${r.error}`);
+}
+
+// ---- suppress command ------------------------------------------------------
+// `afax suppress list` shows opt-outs/bounces; `afax suppress <email>` adds one.
+async function suppressCmd(args) {
+  const { suppress, suppressedSet } = await import('./deliverability.js');
+  const arg = args._[0];
+  if (!arg || arg === 'list') {
+    const rows = read('suppressions', []);
+    header('📭 Suppressions', `${rows.length} endereço(s) — nunca contatados`);
+    table(['Email', 'Motivo', 'Quando'], rows.slice(-50).map((s) => [s.email, s.reason || '—', (s.createdAt || '').slice(0, 10)]));
+    return;
+  }
+  const n = suppress(arg, 'manual');
+  return n ? ok(`${arg} suprimido.`) : info(`${arg} já estava na lista.`);
 }
 
 // ---- config command --------------------------------------------------------

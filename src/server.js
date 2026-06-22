@@ -16,6 +16,7 @@ import { join, basename } from 'node:path';
 import { load, integration, isLive, hasLLM } from './config.js';
 import { AFAX_HOME, read, add, update, find } from './store.js';
 import { emit } from './events.js';
+import { suppress } from './deliverability.js';
 import { Agent } from './agents/base.js';
 import * as registry from './integrations/registry.js';
 import { c, header, ok, info, warn, log } from './logger.js';
@@ -84,6 +85,14 @@ export async function handle(req, res) {
     return send(res, 403, { error: 'bad verify token' });
   }
 
+  // -- one-click unsubscribe (CAN-SPAM / LGPD) ------------------------------
+  if (req.method === 'GET' && path === '/unsubscribe') {
+    const email = url.searchParams.get('e') || '';
+    if (email) suppress(email, 'unsubscribe');
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    return res.end(`<!doctype html><meta charset=utf-8><title>Unsubscribed</title><body style="font-family:system-ui;max-width:32rem;margin:4rem auto;text-align:center"><h1>Done.</h1><p>${email ? email + ' has been' : 'You have been'} removed. You won't get more emails from us.</p></body>`);
+  }
+
   if (req.method !== 'POST') return send(res, 404, { error: 'not found' });
   const raw = await body(req);
   let data = {};
@@ -129,6 +138,18 @@ export async function handle(req, res) {
     return send(res, 200, { received: true });
   }
 
+  // -- Resend events: bounces & complaints → suppress the address -----------
+  if (path === '/webhook/resend') {
+    const type = data.type || '';
+    if (/bounced|complained/.test(type)) {
+      const to = data.data?.to;
+      const addrs = Array.isArray(to) ? to : [to || data.data?.email].filter(Boolean);
+      const n = suppress(addrs, /complained/.test(type) ? 'complaint' : 'bounce');
+      if (n) info(`Suppressed ${n} address(es) from ${type}`);
+    }
+    return send(res, 200, { ok: true });
+  }
+
   if (path === '/inbound/email') {
     if (data.from && (data.text || data.subject)) {
       await inbound({
@@ -149,6 +170,12 @@ export async function handle(req, res) {
 export async function inbound(msg) {
   const rec = add('inbox', { ...msg, repliedAt: null });
   info(`Inbound ${msg.channel} ← ${msg.name || msg.from}: ${String(msg.text).slice(0, 80)}`);
+
+  // Honour opt-out replies (STOP / unsubscribe / "remove me") — don't auto-reply.
+  if (/^\s*(stop|unsubscribe|remove me|descadastr\w*|sair)\b/i.test(String(msg.text || ''))) {
+    if (suppress(msg.from, 'unsubscribe')) info(`Opt-out: suppressed ${msg.from}`);
+    return rec;
+  }
 
   const contact = find('contacts', (x) => x.email === msg.from || x.phone === msg.from);
   if (contact) add('crm_notes', { email: contact.email, text: `Inbound ${msg.channel}: ${String(msg.text).slice(0, 120)}` });
