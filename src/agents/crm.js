@@ -1,6 +1,6 @@
 // 🤝 CRM — unified contacts, stages, interaction history.
 import { Agent } from './base.js';
-import { read, write, add, find, cuid } from '../store.js';
+import { read, write, add, update, find, cuid } from '../store.js';
 import { c, header, table, ok, info, warn, log, dim } from '../logger.js';
 
 export const crm = new Agent({
@@ -21,7 +21,8 @@ export async function cmd(args) {
   const sub = args._[0];
   if (sub === 'contact') return contactCmd(args);
   if (sub === 'note') return noteCmd(args);
-  warn('Usage: afax crm contact add "email" | contact list | contact show "email" | note "email" "text"');
+  if (sub === 'score' || sub === 'hot') return scoreCmd();
+  warn('Usage: afax crm contact add "email" | contact list | contact show "email" | note "email" "text" | score');
 }
 
 async function contactCmd(args) {
@@ -76,6 +77,38 @@ async function contactCmd(args) {
   );
   log('');
   info(`${contacts.length} contact(s).`);
+}
+
+// Deterministic engagement scoring (no LLM): rank contacts by how they actually
+// interacted with our emails (reply > click > open > sent) + their stage.
+function scoreCmd() {
+  const contacts = read('contacts', []);
+  if (!contacts.length) return info('No contacts yet.');
+  const msgs = read('messages', []);
+  const eng = {};
+  for (const m of msgs) {
+    if (!m.to) continue;
+    const e = String(m.to).toLowerCase();
+    const b = eng[e] || (eng[e] = { sent: 0, opened: 0, clicked: 0, replied: 0 });
+    if (m.sent) b.sent++;
+    if (m.opens) b.opened++;
+    if (m.clicks) b.clicked++;
+    if (m.replied) b.replied++;
+  }
+  const stageBonus = (st) => ({ customer: 20, prospect: 10, lead: 0, churned: -10 }[st] ?? 0);
+  const scored = contacts.map((ct) => {
+    const b = eng[String(ct.email || '').toLowerCase()] || {};
+    const score = Math.max(0, Math.min(100, (b.replied ? 50 : 0) + (b.clicked ? 30 : 0) + (b.opened ? 15 : 0) + (b.sent ? 5 : 0) + stageBonus(ct.stage)));
+    return { ct, score };
+  }).sort((a, b) => b.score - a.score);
+  for (const { ct, score } of scored) update('contacts', ct.id, { score });
+  header(`${crm.emoji} CRM`, 'Contact engagement (hot → cold)');
+  table(['Score', 'Name', 'Email', 'Stage'], scored.slice(0, 50).map(({ ct, score }) => [
+    score >= 60 ? c.green(String(score)) : score >= 25 ? c.yellow(String(score)) : c.dim(String(score)),
+    ct.name, ct.email, ct.stage,
+  ]));
+  log('');
+  info(`${scored.length} contact(s) scored from real email engagement.`);
 }
 
 function noteCmd(args) {

@@ -1,6 +1,6 @@
 // 🧭 Context — ingest the company's real web presence into a rich, persistent
 // profile every agent then uses. Mirrors how Polsia "learns your company".
-import { load, save, hasLLM } from '../config.js';
+import { load, save, hasLLM, workModel } from '../config.js';
 import { chat } from '../llm/index.js';
 import { remember, recall } from '../memory.js';
 import { fetchText } from '../integrations/web.js';
@@ -61,6 +61,7 @@ async function ingest(url, args) {
       json: true,
       temperature: 0.3,
       maxTokens: 800,
+      model: workModel(),
     }).then((r) => r.json)
   );
 

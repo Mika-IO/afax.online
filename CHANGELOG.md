@@ -12,6 +12,19 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 "dry-run"; synthetic leads are gone; marketing channels actually do something.
 
 ### Added
+- **Campaigns are executed multi-touch sequences (+ measured A/B).** `marketing
+  campaign --steps N --days 0,3,6 [--where seg] [--ab]` designs the touch
+  templates in one call and schedules each to draft real outreach on its day;
+  `--ab` splits two subjects over the same audience; `marketing campaign report
+  <id>` declares the winner. (`src/agents/marketing.js`, `src/agents/outreach.js`)
+- **Sales: scoring, forecast, sequences.** `sales score` (deterministic 0-100 from
+  stage+size+recency), `sales forecast` (probability-weighted pipeline), `sales
+  sequence --deal X` (scheduled follow-up cadence). (`src/agents/sales.js`)
+- **Automation: conditional branching + more triggers.** Flow steps can be guarded
+  `?field op value? command`; new `content.created` / `task.completed` events.
+  (`src/events.js`)
+- **CRM: engagement scoring.** `crm score` ranks contacts 0-100 from real email
+  engagement (reply/click/open) + stage. (`src/agents/crm.js`)
 - **Feedback loop / metrics.** Email outcomes (delivered/opened/clicked via the
   Resend webhook, replies via inbound) now flow back onto each message; `afax
   metrics` shows the funnel + cost-per-outcome; the orchestrator snapshot carries
