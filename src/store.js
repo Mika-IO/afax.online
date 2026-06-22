@@ -38,6 +38,17 @@ export function add(name, item) {
   return record;
 }
 
+// Append many records in a single read+write — O(n) instead of O(n·m) when you
+// add() in a loop. Returns the created records.
+export function addMany(name, items) {
+  if (!items.length) return [];
+  const list = read(name, []);
+  const created = items.map((item) => ({ id: item.id || cuid(), createdAt: new Date().toISOString(), ...item }));
+  for (const rec of created) list.push(rec);
+  write(name, list);
+  return created;
+}
+
 export function update(name, id, patch) {
   const list = read(name, []);
   const idx = list.findIndex((x) => x.id === id);

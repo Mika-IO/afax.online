@@ -8,7 +8,11 @@ export async function chat({ apiKey, model, baseUrl, system, messages, temperatu
     model,
     max_tokens: maxTokens,
     temperature,
-    ...(system ? { system } : {}),
+    // Cache the (large, static) system prompt: business profile + style + tool
+    // list are identical across calls, so within the 5-min TTL we re-read them at
+    // ~0.1x input cost instead of paying full price every call. Below Anthropic's
+    // min cacheable size it's simply ignored — no downside.
+    ...(system ? { system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }] } : {}),
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   };
   const headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };

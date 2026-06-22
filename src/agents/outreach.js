@@ -4,7 +4,7 @@
 // way Instantly/Smartlead/lemlist do it. Optional --personalize adds a batched
 // AI icebreaker (one call for the whole batch). Drafts are held for approval.
 import { Agent } from './base.js';
-import { read, write, add } from '../store.js';
+import { read, write, addMany } from '../store.js';
 import { isLive } from '../config.js';
 import * as registry from '../integrations/registry.js';
 import { c, header, table, ok, info, warn, spin, log, dim } from '../logger.js';
@@ -55,8 +55,10 @@ export async function cmd(args, { signal } = {}) {
     llmCalls++;
   }
 
-  // 3) Render locally + queue per lead. NO per-lead LLM call.
+  // 3) Render locally + queue per lead. NO per-lead LLM call. Records are
+  // accumulated and written ONCE (O(n)) — not one file rewrite per lead.
   const results = [];
+  const newMessages = [], notes = [], contacted = new Set();
   let prepared = 0, sentN = 0;
   for (let i = 0; i < leads.length; i++) {
     if (signal?.aborted) { warn('Interrompido pelo usuário.'); break; }
@@ -67,18 +69,25 @@ export async function cmd(args, { signal } = {}) {
     const target = channel === 'email' ? lead.email : lead.phone || lead.email;
 
     const sent = await registry.dm({ platform: channel, to: target, subject, text: body, live });
-    add('messages', {
+    newMessages.push({
       leadId: lead.id, channel, to: target, subject: subject || '', body,
-      pending: !!sent.pending, sent: sent.sent === true, delivered: sent.sent === true, error: sent.error || '',
+      pending: !!sent.pending, sent: sent.sent === true, delivered: sent.sent === true,
+      receipt: sent.sent === true ? (sent.result?.id || 'ok') : undefined, error: sent.error || '',
     });
     if (sent.sent === true) {
       sentN++;
-      const all = read('leads', []);
-      const idx = all.findIndex((x) => x.id === lead.id);
-      if (idx >= 0) { all[idx].status = 'contacted'; write('leads', all); }
-      add('crm_notes', { email: lead.email, text: `Outreach via ${channel}: ${subject || body.slice(0, 60)}` });
+      contacted.add(lead.id);
+      notes.push({ email: lead.email, text: `Outreach via ${channel}: ${subject || body.slice(0, 60)}` });
     } else if (sent.pending) prepared++;
     if (results.length < 8) results.push([lead.name, lead.company, (subject || '(dm)').slice(0, 28), verdict(sent)]);
+  }
+  // Flush everything in one write per collection.
+  if (newMessages.length) addMany('messages', newMessages);
+  if (notes.length) addMany('crm_notes', notes);
+  if (contacted.size) {
+    const all = read('leads', []); let changed = false;
+    for (const l of all) if (contacted.has(l.id) && l.status !== 'contacted') { l.status = 'contacted'; changed = true; }
+    if (changed) write('leads', all);
   }
 
   agent.note(`Outreach: ${channel}, ${leads.length} leads, ${llmCalls} LLM call(s), live=${live && isLive()}.`);

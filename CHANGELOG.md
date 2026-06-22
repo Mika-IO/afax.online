@@ -38,6 +38,15 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 - **Tasks & Approvals docs** (`docs/tasks.md`).
 
 ### Changed
+- **Prompt caching (Anthropic).** The large, static system prompt (business
+  profile + style + tool list) is sent with `cache_control: ephemeral`, so within
+  the 5-min TTL it's re-read at ~0.1x input cost instead of full price every call.
+  OpenAI caches eligible prompts automatically. (`src/llm/anthropic.js`)
+- **O(n) writes at scale.** Outreach and `approve --all` no longer rewrite a whole
+  collection file per record (was O(n²) — at 56k leads each send rewrote the 1MB
+  file). Records are accumulated and flushed once per collection via a new
+  `addMany()`; lead-status flips and CRM notes are batched too. (`src/store.js`,
+  `src/agents/outreach.js`, `src/approvals.js`)
 - **No more fake sends.** The outbound choke-point (`registry.guarded`) no longer
   returns `{ok:true, dryRun:true}`. It's either a real send (`sent:true` + receipt)
   or `pending:true, sent:false` (prepared, NOT sent). Every caller (outreach,
