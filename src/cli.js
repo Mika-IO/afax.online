@@ -179,6 +179,9 @@ export async function dispatch(argv, ctx = {}) {
     case 'suppress':
     case 'suppressions':
       return suppressCmd(args);
+    case 'metrics':
+    case 'performance':
+      return metricsCmd(args);
     default:
       warn(`Unknown command: ${cmd}`);
       log(`Run ${c.cyan('afax help')} for the command list.`);
@@ -272,6 +275,30 @@ async function suppressCmd(args) {
   }
   const n = suppress(arg, 'manual');
   return n ? ok(`${arg} suprimido.`) : info(`${arg} já estava na lista.`);
+}
+
+// ---- metrics command -------------------------------------------------------
+// `afax metrics` — the real outcome funnel (delivered/opened/clicked/replied)
+// plus cost-per-outcome from the usage ledger.
+async function metricsCmd() {
+  const { emailStats } = await import('./metrics.js');
+  const { monthTotals } = await import('./usage.js');
+  const s = emailStats();
+  header('📈 Metrics', 'Email funnel — real outcomes');
+  table(
+    ['Stage', 'Count', 'Rate'],
+    [
+      ['Sent', s.sent, ''],
+      ['Delivered', s.delivered, s.deliveryRate + '%'],
+      ['Opened', s.opened, s.openRate + '%'],
+      ['Clicked', s.clicked, s.clickRate + '%'],
+      ['Replied', s.replied, s.replyRate + '%'],
+    ]
+  );
+  log('');
+  const spend = monthTotals().cost || 0;
+  if (s.sent) info(`Custo/enviado: ${c.bold('$' + (spend / s.sent).toFixed(4))}  ·  custo/resposta: ${c.bold(s.replied ? '$' + (spend / s.replied).toFixed(2) : '—')}  (LLM no mês: $${spend.toFixed(2)})`);
+  if (!s.sent) info('Nada enviado ainda. Métricas de open/click chegam via webhook do Resend (POST /webhook/resend).');
 }
 
 // ---- config command --------------------------------------------------------

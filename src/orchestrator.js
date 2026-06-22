@@ -3,6 +3,7 @@
 import { chat } from './llm/index.js';
 import { load, hasLLM, workModel } from './config.js';
 import { read } from './store.js';
+import { emailStats, performanceLine } from './metrics.js';
 import { recall, remember } from './memory.js';
 import { tokenize } from './agents/automation.js';
 import { styleBlock } from './style.js';
@@ -22,6 +23,7 @@ export function snapshot() {
   const revenue = read('revenue', []);
   const expenses = read('expenses', []);
   const mrr = revenue.filter((r) => /sub|recur|month/i.test(r.type || '')).reduce((s, r) => s + (+r.amount || 0), 0);
+  const perf = emailStats();
   return {
     leads: leads.length,
     contacts: contacts.length,
@@ -35,6 +37,9 @@ export function snapshot() {
     revenue: revenue.reduce((s, r) => s + (+r.amount || 0), 0),
     expenses: expenses.reduce((s, e) => s + (+e.amount || 0), 0),
     mrr,
+    emailsSent: perf.sent,
+    openRate: perf.openRate,
+    replyRate: perf.replyRate,
   };
 }
 

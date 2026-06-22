@@ -17,6 +17,7 @@ import { load, integration, isLive, hasLLM } from './config.js';
 import { AFAX_HOME, read, add, update, find } from './store.js';
 import { emit } from './events.js';
 import { suppress } from './deliverability.js';
+import { recordEmailEvent, recordReply } from './metrics.js';
 import { Agent } from './agents/base.js';
 import * as registry from './integrations/registry.js';
 import { c, header, ok, info, warn, log } from './logger.js';
@@ -138,7 +139,7 @@ export async function handle(req, res) {
     return send(res, 200, { received: true });
   }
 
-  // -- Resend events: bounces & complaints → suppress the address -----------
+  // -- Resend events: deliveries/opens/clicks → metrics; bounces/complaints → suppress
   if (path === '/webhook/resend') {
     const type = data.type || '';
     if (/bounced|complained/.test(type)) {
@@ -146,6 +147,9 @@ export async function handle(req, res) {
       const addrs = Array.isArray(to) ? to : [to || data.data?.email].filter(Boolean);
       const n = suppress(addrs, /complained/.test(type) ? 'complaint' : 'bounce');
       if (n) info(`Suppressed ${n} address(es) from ${type}`);
+    } else if (/delivered|opened|clicked/.test(type)) {
+      const short = type.replace(/^email\./, '');
+      recordEmailEvent(short, data.data?.email_id);
     }
     return send(res, 200, { ok: true });
   }
@@ -179,6 +183,7 @@ export async function inbound(msg) {
 
   const contact = find('contacts', (x) => x.email === msg.from || x.phone === msg.from);
   if (contact) add('crm_notes', { email: contact.email, text: `Inbound ${msg.channel}: ${String(msg.text).slice(0, 120)}` });
+  if (msg.channel === 'email') recordReply(msg.from); // feedback loop: close the reply metric
 
   await emit('message.received', { channel: msg.channel, from: msg.from, name: msg.name, email: contact?.email || msg.from, text: msg.text });
 
