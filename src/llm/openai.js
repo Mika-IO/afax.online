@@ -18,8 +18,11 @@ const usageOf = (u) => (u ? { input: u.prompt_tokens || 0, output: u.completion_
 
 export async function chat({ apiKey, model, baseUrl, system, messages, temperature, maxTokens, onToken, signal }) {
   if (!apiKey) throw new Error('Missing API key for OpenAI-compatible provider. Run: afax config set providers.openai.apiKey <key>  (or export OPENAI_API_KEY)');
+  // system may be an array of { text } blocks (static-first, dynamic-last) or a
+  // string. Joined into one system message; OpenAI auto-caches the stable prefix.
+  const sysText = Array.isArray(system) ? system.map((b) => b.text).filter(Boolean).join('\n') : (system || '');
   const msgs = [];
-  if (system) msgs.push({ role: 'system', content: system });
+  if (sysText) msgs.push({ role: 'system', content: sysText });
   for (const m of messages) msgs.push({ role: m.role, content: m.content });
 
   const reasoning = isReasoning(model);

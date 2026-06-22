@@ -119,7 +119,7 @@ function systemPrompt(mode = 'agent') {
   const s = snapshot();
   const mem = recall(null, 10).map((m) => `- [${m.scope}] ${m.text}`).join('\n');
   const b = cfg.business;
-  return [
+  const staticText = [
     'You are AFAX, the user\'s autonomous company copilot, in an interactive terminal session. ',
     'Be direct, concise and helpful. The user is the CEO.',
     '',
@@ -130,12 +130,6 @@ function systemPrompt(mode = 'agent') {
     'propose a concrete plan and run the AFAX commands to execute it. Explore first, plan, then act.',
     '',
     `About AFAX: ${ABOUT}`,
-    '',
-    `Business: ${b.name || 'unnamed'} | Offer: ${b.offer || '—'} | ICP: ${b.icp || '—'} | workspace: ${cfg.workspace}`,
-    `Company state: ${Object.entries(s).map(([k, v]) => `${k}=${v}`).join(' ')}`,
-    `Outbound: ${cfg.live ? 'LIVE enabled globally' : 'dry-run (live=false)'} | Autonomy: ${cfg.autonomy}`,
-    `Connected channels: ${connectionLine()}`,
-    mem ? `Recent memory:\n${mem}` : '',
     '',
     'Tools — local filesystem (read + write) and a real browser you can drive:',
     TOOLS,
@@ -175,7 +169,7 @@ function systemPrompt(mode = 'agent') {
     '- No filler. No motivational fluff. No restating menus. If you cannot do something, the answer is what\'s blocking it',
     '  and the single next step — short. A useful "I can\'t do X because Y, do Z" beats a paragraph of generic text.',
     '- Outbound commands send real messages only when the user clearly asked AND the channel is connected; otherwise keep them dry-run.',
-    '- IMPORTANT — the --live flag: a send is real ONLY if BOTH global outbound is LIVE enabled (see "Outbound:" above) AND the command carries --live.',
+    '- IMPORTANT — the --live flag: a send is real ONLY if BOTH global outbound is LIVE enabled (see the "Outbound:" line in the live state below) AND the command carries --live.',
     '  So when "Outbound: LIVE enabled globally" is shown AND the user clearly asked to send, you MUST add --live to the send command (email send / outreach / marketing publish).',
     '  Do NOT run it without --live and then tell the user it was a simulation and ask permission — they already enabled live; just send. Only stay dry-run if global outbound is off, or the user is merely previewing/drafting.',
     '- When the user names an email recipient (e.g. "email me at x@y.com"), use `email send --to <that exact address>`.',
@@ -190,6 +184,18 @@ function systemPrompt(mode = 'agent') {
     styleBlock(cfg),
     '(These language and style rules govern the "say" field.)',
   ].filter(Boolean).join('\n');
+
+  // Per-call DYNAMIC context goes LAST so the big static prefix above stays a
+  // stable, cacheable prefix (Anthropic cache_control + OpenAI auto prefix cache).
+  const dynamicText = [
+    `Business: ${b.name || 'unnamed'} | Offer: ${b.offer || '—'} | ICP: ${b.icp || '—'} | workspace: ${cfg.workspace}`,
+    `Company state: ${Object.entries(s).map(([k, v]) => `${k}=${v}`).join(' ')}`,
+    `Outbound: ${cfg.live ? 'LIVE enabled globally' : 'dry-run (live=false)'} | Autonomy: ${cfg.autonomy}`,
+    `Connected channels: ${connectionLine()}`,
+    mem ? `Recent memory:\n${mem}` : '',
+  ].filter(Boolean).join('\n');
+
+  return [{ text: staticText, cache: true }, { text: dynamicText, cache: false }];
 }
 
 // --- streaming UI ------------------------------------------------------------

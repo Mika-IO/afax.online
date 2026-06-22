@@ -26,15 +26,15 @@ export class Agent {
     ]
       .filter(Boolean)
       .join('\n');
-    return [
-      this.system,
-      profile && `\nBusiness profile:\n${profile}`,
-      memoryBlock(this.key) && `\n${memoryBlock(this.key)}`,
-      `\n${styleBlock()}`,
-      extra && `\n${extra}`,
-    ]
-      .filter(Boolean)
-      .join('\n');
+    // Static (cacheable) first: role + style rules. Dynamic last: the business
+    // profile, this agent's memory and any per-call extra.
+    const staticText = [this.system, styleBlock()].filter(Boolean).join('\n\n');
+    const dynamicText = [
+      profile && `Business profile:\n${profile}`,
+      memoryBlock(this.key) || '',
+      extra || '',
+    ].filter(Boolean).join('\n\n');
+    return [{ text: staticText, cache: true }, { text: dynamicText, cache: false }];
   }
 
   // Free-form generation.
