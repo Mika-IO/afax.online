@@ -1,7 +1,9 @@
 # AFAX Cloud — the web control panel + autonomous company, deployable anywhere
 # that runs a container (Railway, Fly, Render, a plain VPS). Zero runtime deps,
 # so the image is tiny and there is nothing to compile.
-FROM node:20-alpine
+# Node 22 ships the built-in node:sqlite AFAX prefers (it falls back to a JSON
+# store on older Node, but 22 gets the faster, indexed SQLite backend).
+FROM node:22-alpine
 
 WORKDIR /app
 

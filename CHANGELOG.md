@@ -91,8 +91,10 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
   O(1)/O(log n) instead of rewriting a whole JSON file, and worker + chat can
   write concurrently (WAL + busy timeout). Existing `*.json` collections are
   migrated automatically on first open and kept as `*.json.bak` backups. The
-  `store.js` API is unchanged, so callers didn't move. **Requires Node ≥ 22.5.**
-  (`src/db.js`, `src/store.js`, `src/data.js`)
+  `store.js` API is unchanged, so callers didn't move. **Node ≥ 22.5 gets SQLite;
+  older Node transparently falls back to the JSON store** (set `AFAX_STORE=json`
+  to force it) — so AFAX still runs anywhere. (`src/db.js`, `src/store.js`,
+  `src/data.js`; Docker base bumped to node:22)
 - **Prompt caching that actually hits.** System prompts are now built as
   static-first / dynamic-last blocks: the big stable part (identity, tool list,
   command catalog, rules, style) comes first and the per-call bits (snapshot,
