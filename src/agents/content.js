@@ -130,6 +130,7 @@ async function renderMedia(type, args) {
 // Let the model author the premium spec JSON from a plain topic.
 async function specFromTopic(type, topic) {
   const { chat } = await import('../llm/index.js');
+  const { workModel } = await import('../config.js');
   const schema =
     type === 'carousel'
       ? '{"slides":[{"kind":"cover","title":"hook","body":"1 line"},{"title":"point","body":"1-2 lines"}, … 4-6 slides],"caption":"post caption with hashtags"}'
@@ -142,6 +143,7 @@ async function specFromTopic(type, topic) {
     json: true,
     temperature: 0.7,
     maxTokens: 1000,
+    model: workModel(),
   });
   return json;
 }
