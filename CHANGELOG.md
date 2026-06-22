@@ -12,6 +12,17 @@ turns tasks into prepared work; a human-approval queue replaces the dishonest
 "dry-run"; synthetic leads are gone; marketing channels actually do something.
 
 ### Added
+- **Outreach that scales (template + merge, not one LLM call per email).** Outreach
+  now writes ONE template per segment (a single LLM call — or zero with
+  `--template`) and mail-merges it locally for every lead: `{{first_name}}`,
+  `{{company}}`, `{{title}}`, `{{signal}}` + `{spintax|variation}`. N emails ≈ 1
+  call instead of N. New flags: `--where` (segment), `--personalize` (one batched
+  AI icebreaker for the whole run), `--template`/`--subject`. (`src/agents/outreach.js`)
+- **Batch approve + batch send.** `afax approve --all` (and panel **Aprovar tudo**)
+  sends every pending email through Resend's batch API (100 per HTTP call, 0 LLM
+  calls), records a receipt per message, flips leads to `contacted`.
+  (`src/approvals.js`, `src/integrations/email.js` `sendBatch`, `src/web.js`,
+  `src/web.page.html`)
 - **Background task worker.** `afax work` (and the `afax cloud` heartbeat) drains
   queued tasks: each task is a natural-language GOAL run through a new
   goal-driven orchestrator (`executeGoal`), which picks real commands and runs

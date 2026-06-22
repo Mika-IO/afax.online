@@ -1,11 +1,13 @@
-// 📨 Outreach — multichannel cold outreach engine. Drafts human-quality,
-// personalized messages per lead and sends them through real connectors.
-// SAFE BY DEFAULT: dry-run unless --live (and global config.live) is set.
+// 📨 Outreach — scalable cold outreach. Writes ONE template (a single LLM call,
+// or zero if you pass --template), then mail-merges it locally for every lead:
+// {{merge_vars}} + {spintax|variation}. N emails cost ~1 LLM call, not N — the
+// way Instantly/Smartlead/lemlist do it. Optional --personalize adds a batched
+// AI icebreaker (one call for the whole batch). Drafts are held for approval.
 import { Agent } from './base.js';
 import { read, write, add } from '../store.js';
 import { isLive } from '../config.js';
 import * as registry from '../integrations/registry.js';
-import { c, header, table, ok, info, warn, step, spin, log, dim } from '../logger.js';
+import { c, header, table, ok, info, warn, spin, log, dim } from '../logger.js';
 
 const agent = new Agent({
   key: 'outreach',
@@ -15,70 +17,81 @@ const agent = new Agent({
   system:
     'You are AFAX Outreach, a world-class SDR. You write short, specific, human cold messages that earn a reply. ' +
     'No spam, no fake flattery, no "I hope this finds you well". Lead with a concrete, relevant observation about the ' +
-    'prospect, connect it to one clear value, and end with a low-friction ask. Match the channel: email gets a subject; ' +
-    'whatsapp/telegram are 2-3 sentences max.',
+    'prospect, connect it to one clear value, and end with a low-friction ask.',
 });
 
-// afax outreach --channel email [--limit 10] [--status new] [--live]
+// afax outreach --channel email [--limit 25] [--status new] [--where "field~val,.."]
+//   [--template "..." --subject "..."]   provide your own template (0 LLM calls)
+//   [--personalize]                      add a batched AI icebreaker (1 extra call)
+//   [--live]                             actually send (else drafted for approval)
 export async function cmd(args, { signal } = {}) {
   const channel = args.channel || 'email';
-  const limit = Math.min(parseInt(args.limit || '5', 10) || 5, 50);
+  const limit = Math.min(parseInt(args.limit || '25', 10) || 25, 1000);
   const live = !!args.live;
+  const personalize = !!args.personalize;
 
-  const leads = read('leads', [])
-    .filter((l) => (args.status ? l.status === args.status : l.status !== 'contacted'))
-    .slice(0, limit);
+  let leads = read('leads', []).filter((l) => (args.status ? l.status === args.status : l.status !== 'contacted'));
+  if (args.where) leads = leads.filter(whereFilter(args.where));
+  leads = leads.slice(0, limit);
 
   header(`${agent.emoji} Outreach`, `${channel} · ${leads.length} lead(s) · ${live ? (isLive() ? c.green('LIVE') : c.yellow('--live mas config.live=false → não envia')) : c.dim('preparação (não envia)')}`);
-
   if (!leads.length) return info('No leads to contact. Run: afax prospect source <domain>  or  afax prospect import leads.csv');
-  if (!agent.online) return warn('Outreach needs an LLM to personalize. Run: afax init');
 
-  const results = [];
-  for (const lead of leads) {
-    if (signal?.aborted) { warn('Interrompido pelo usuário.'); break; }
-    const drafted = await spin(`Writing → ${lead.name} @ ${lead.company}`, () =>
-      draft(agent, lead, channel)
-    );
-    const target = channel === 'email' ? lead.email : lead.phone || lead.email;
-    const sent = await registry.dm({
-      platform: channel,
-      to: target,
-      subject: drafted.subject,
-      text: drafted.body,
-      live,
-    });
-
-    add('messages', {
-      leadId: lead.id,
-      channel,
-      to: target,
-      subject: drafted.subject || '',
-      body: drafted.body,
-      pending: !!sent.pending,
-      sent: sent.sent === true,
-      delivered: sent.sent === true,
-      error: sent.error || '',
-    });
-    // Mark contacted only on a real send (a receipt exists).
-    if (sent.sent === true) {
-      const all = read('leads', []);
-      const i = all.findIndex((x) => x.id === lead.id);
-      if (i >= 0) { all[i].status = 'contacted'; write('leads', all); }
-      add('crm_notes', { email: lead.email, text: `Outreach via ${channel}: ${drafted.subject || drafted.body.slice(0, 60)}` });
-    }
-    results.push([lead.name, lead.company, drafted.subject || '(dm)', verdict(sent)]);
+  // 1) Get ONE template — provided verbatim, or generated in a single LLM call.
+  let tpl, llmCalls = 0;
+  if (args.template) {
+    tpl = { subject: String(args.subject || ''), body: String(args.template) };
+  } else if (agent.online) {
+    tpl = await spin('Escrevendo 1 template pro segmento', () => makeTemplate(agent, channel, leads));
+    llmCalls++;
+  } else {
+    return warn('Sem LLM: passe um template com ' + c.cyan('--template "Oi {{first_name}}, ..." --subject "..."') + ' ou rode ' + c.cyan('afax init') + '.');
   }
 
-  agent.note(`Outreach run: ${channel}, ${results.length} leads, live=${live && isLive()}.`);
+  // 2) Optional: one batched call to write a per-lead icebreaker line.
+  let lines = [];
+  if (personalize && agent.online) {
+    lines = await spin(`Personalizando ${leads.length} icebreakers (1 chamada)`, () => icebreakers(agent, leads));
+    llmCalls++;
+  }
+
+  // 3) Render locally + queue per lead. NO per-lead LLM call.
+  const results = [];
+  let prepared = 0, sentN = 0;
+  for (let i = 0; i < leads.length; i++) {
+    if (signal?.aborted) { warn('Interrompido pelo usuário.'); break; }
+    const lead = leads[i];
+    const extra = { icebreaker: lines[i] || '' };
+    const subject = renderForLead(tpl.subject, lead, extra);
+    const body = renderForLead(tpl.body, lead, extra);
+    const target = channel === 'email' ? lead.email : lead.phone || lead.email;
+
+    const sent = await registry.dm({ platform: channel, to: target, subject, text: body, live });
+    add('messages', {
+      leadId: lead.id, channel, to: target, subject: subject || '', body,
+      pending: !!sent.pending, sent: sent.sent === true, delivered: sent.sent === true, error: sent.error || '',
+    });
+    if (sent.sent === true) {
+      sentN++;
+      const all = read('leads', []);
+      const idx = all.findIndex((x) => x.id === lead.id);
+      if (idx >= 0) { all[idx].status = 'contacted'; write('leads', all); }
+      add('crm_notes', { email: lead.email, text: `Outreach via ${channel}: ${subject || body.slice(0, 60)}` });
+    } else if (sent.pending) prepared++;
+    if (results.length < 8) results.push([lead.name, lead.company, (subject || '(dm)').slice(0, 28), verdict(sent)]);
+  }
+
+  agent.note(`Outreach: ${channel}, ${leads.length} leads, ${llmCalls} LLM call(s), live=${live && isLive()}.`);
   log('');
   table(['Lead', 'Company', 'Subject', 'Status'], results);
+  if (leads.length > results.length) dim(`  … +${leads.length - results.length} mais`);
   log('');
+  info(`${c.bold(String(leads.length))} emails montados com ${c.bold(llmCalls + ' chamada(s) LLM')} (template + merge local, não 1 por email).`);
   if (!(live && isLive())) {
-    info(`Preparado — ${c.bold('nada foi enviado')}. Pra enviar de verdade: ${c.cyan('afax config set live true')} e ${c.cyan('afax outreach --channel ' + channel + ' --live')}`);
+    info(`${prepared} preparado(s) — ${c.bold('nada enviado')}. Enviar: ${c.cyan('afax approve --all')} ou ${c.cyan('afax config set live true')} + ${c.cyan('--live')}.`);
     dim('  Ver os rascunhos: afax outreach preview');
   } else {
-    ok('Outreach enviado.');
+    ok(`${sentN} enviado(s).`);
   }
 }
 
@@ -95,15 +108,68 @@ export function preview() {
   }
 }
 
-async function draft(agent, lead, channel) {
+// --- one template for the whole segment (single LLM call) -------------------
+async function makeTemplate(agent, channel, leads) {
+  const sample = leads.slice(0, 5).map((l) => `${l.company || l.name} (${l.signal || '—'})`).join('; ');
   const j = await agent.structured(
-    `Write a cold ${channel} message to:\n` +
-      `Name: ${lead.name}\nTitle: ${lead.title}\nCompany: ${lead.company}\nSignal: ${lead.signal || 'n/a'}\n\n` +
-      `Return JSON: {"subject":"<email subject or empty>","body":"<message>"}. ` +
-      `${channel === 'email' ? 'Subject under 6 words.' : 'No subject. 2-3 sentences.'} Body under 90 words.`,
-    { temperature: 0.7, maxTokens: 400 }
+    `Write ONE reusable cold ${channel} TEMPLATE for this segment — not a message to a single person.\n` +
+      `Use these merge variables as LITERAL tokens (do NOT fill them in): {{first_name}}, {{company}}, {{title}}, {{signal}}.\n` +
+      `Add light spintax for natural variation on the greeting and the CTA, using {option one|option two} syntax.\n` +
+      `Segment sample: ${sample}.\n` +
+      `Return JSON: {"subject":"<${channel === 'email' ? 'subject, {{company}} allowed' : 'empty'}>","body":"<template>"}. ` +
+      `${channel === 'email' ? 'Subject under 7 words.' : 'No subject. 2-3 sentences.'} Body under 90 words. ` +
+      `Every variable must remain as {{token}} verbatim.`,
+    { temperature: 0.6, maxTokens: 500 }
   );
   return { subject: j.subject || '', body: j.body || '' };
+}
+
+// --- optional: batched icebreakers, one call for the whole batch ------------
+async function icebreakers(agent, leads) {
+  const list = leads.map((l, i) => `${i + 1}. ${l.name} @ ${l.company || '?'} — signal: ${l.signal || 'n/a'}`).join('\n');
+  const j = await agent.structured(
+    `For each prospect below, write ONE short, specific opening line (max 18 words) referencing their company/signal. ` +
+      `Return JSON: {"lines":["line for 1","line for 2", ...]} in the SAME order, one per prospect.\n${list}`,
+    { temperature: 0.6, maxTokens: Math.min(2000, 60 * leads.length + 200) }
+  );
+  return Array.isArray(j.lines) ? j.lines : [];
+}
+
+// --- local render: merge vars + spintax (zero LLM) --------------------------
+function renderForLead(tpl, lead, extra) {
+  return spintax(mergeVars(tpl, lead, extra), lead.id || lead.email || '');
+}
+
+function mergeVars(str, lead, extra) {
+  const map = {
+    name: lead.name || '', first_name: firstName(lead.name),
+    company: lead.company || 'sua empresa', title: lead.title || '',
+    signal: lead.signal || '', icebreaker: (extra && extra.icebreaker) || '',
+  };
+  return String(str || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => (k in map ? map[k] : ''));
+}
+
+// {a|b|c} → pick one deterministically per lead (stable, varied across leads).
+function spintax(str, seed) {
+  let i = 0;
+  return String(str || '').replace(/\{([^{}|]+(?:\|[^{}|]+)+)\}/g, (_, body) => {
+    const opts = body.split('|');
+    return opts[hash(seed + ':' + i++) % opts.length];
+  });
+}
+function hash(s) { let h = 0; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; }
+function firstName(name) { return String(name || '').trim().split(/\s+/)[0] || 'olá'; }
+
+// Tiny segment filter: "field=value,field~substr" (AND of conditions).
+function whereFilter(expr) {
+  const conds = String(expr).split(',').map((s) => s.trim()).filter(Boolean).map(parseCond);
+  return (l) => conds.every((fn) => fn(l));
+}
+function parseCond(s) {
+  let m;
+  if ((m = s.match(/^(\w+)~(.+)$/))) return (l) => String(l[m[1]] ?? '').toLowerCase().includes(m[2].toLowerCase());
+  if ((m = s.match(/^(\w+)=(.+)$/))) return (l) => String(l[m[1]] ?? '').toLowerCase() === m[2].toLowerCase();
+  return () => true;
 }
 
 function verdict(sent) {
@@ -113,3 +179,4 @@ function verdict(sent) {
 }
 
 export const outreach = agent;
+export const _internals = { spintax, mergeVars, renderForLead, whereFilter };

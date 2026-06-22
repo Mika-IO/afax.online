@@ -271,6 +271,10 @@ async function handle(req, res, ctx) {
     const { pending } = await import('./approvals.js');
     return send(res, 200, { items: pending() });
   }
+  if (path === '/api/approvals/approveall' && req.method === 'POST') {
+    const { approveAll } = await import('./approvals.js');
+    return send(res, 200, await approveAll({}));
+  }
   {
     const am = path.match(/^\/api\/approvals\/([^/]+)\/(approve|reject)$/);
     if (am && req.method === 'POST') {

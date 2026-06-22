@@ -224,7 +224,14 @@ function dataCmd(args) {
 // `afax approvals` lists prepared-but-unsent outbound. `afax approve <id>` does
 // the REAL send (human is the gate). `afax reject <id>` discards it.
 async function approvalsCmd(cmd, args) {
-  const { pending, approve, reject } = await import('./approvals.js');
+  const { pending, approve, approveAll, reject } = await import('./approvals.js');
+  if (cmd === 'approve' && (args.all || args._[0] === 'all')) {
+    const n = pending().length;
+    if (!n) return info('Nada pendente.');
+    info(`Enviando ${n} item(s) de verdade (email em lote)…`);
+    const r = await approveAll({});
+    return ok(`Enviados ${r.sent}/${n} de verdade${r.failed ? c.yellow(` · ${r.failed} falharam`) : ''}.`);
+  }
   if (cmd === 'approvals') {
     const items = pending();
     header('✅ Aprovações', `${items.length} item(s) preparado(s) — nada enviado ainda`);

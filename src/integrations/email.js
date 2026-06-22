@@ -21,6 +21,34 @@ export function sanitizeEmail(raw) {
     .trim();
 }
 
+// Batch send via Resend's /emails/batch (up to 100 per request). Returns an
+// array aligned to the input: [{ index, id?, error? }]. One HTTP call per 100
+// messages instead of one per email — the throughput path for big approvals.
+export async function sendBatch(messages) {
+  const e = integration('email');
+  if (e.driver !== 'resend') throw new Error('Batch send currently needs the Resend driver.');
+  if (!e.apiKey) throw new Error('Missing Resend API key.');
+  if (!e.from) throw new Error('No sender. Set integrations.email.from.');
+  const out = [];
+  for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100);
+    const payload = chunk.map((m) => ({ from: e.from, to: [m.to], subject: m.subject || 'Hello', text: m.text }));
+    try {
+      const r = await http('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${e.apiKey}` },
+        json: payload,
+      });
+      const data = Array.isArray(r) ? r : (r.data || []);
+      chunk.forEach((_, j) => out.push({ index: i + j, id: data[j]?.id || '' }));
+    } catch (err) {
+      const msg = resendHint(err.message, e);
+      chunk.forEach((_, j) => out.push({ index: i + j, error: msg }));
+    }
+  }
+  return out;
+}
+
 // send({ to, subject, text, html }) -> { id } | throws
 export async function send({ to, subject, text, html }) {
   const e = integration('email');

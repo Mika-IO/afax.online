@@ -212,3 +212,26 @@ test('workModel: cheaper model for agent work', async () => {
   const m = workModel();
   assert.ok(typeof m === 'string' && m.length > 0);
 });
+
+// --- outreach template-merge (scale) -----------------------------------------
+
+test('outreach: merge vars + spintax render locally (no LLM per email)', async () => {
+  const { _internals } = await import('../src/agents/outreach.js');
+  const { mergeVars, spintax, renderForLead, whereFilter } = _internals;
+  // merge
+  assert.equal(mergeVars('Hi {{first_name}} at {{company}}', { name: 'Jane Doe', company: 'Acme' }), 'Hi Jane at Acme');
+  // unknown token → empty
+  assert.equal(mergeVars('x{{nope}}y', { name: 'A' }), 'xy');
+  // spintax resolves and is stable per seed
+  const a = spintax('{Hi|Hey|Hello} there', 'seed1');
+  assert.ok(['Hi there', 'Hey there', 'Hello there'].includes(a));
+  assert.equal(spintax('{Hi|Hey} x', 'seed1'), spintax('{Hi|Hey} x', 'seed1'));
+  // full render leaves no literal tokens
+  const out = renderForLead('{Oi|Olá} {{first_name}}, {{company}}', { id: 'L1', name: 'Bob Silva', company: 'BobCo' });
+  assert.ok(!/\{\{|\|/.test(out));
+  assert.ok(out.includes('Bob') && out.includes('BobCo'));
+  // segment filter
+  const f = whereFilter('signal~pos,title=ceo');
+  assert.ok(f({ signal: 'seeking POS integrations', title: 'CEO' }));
+  assert.ok(!f({ signal: 'nope', title: 'CEO' }));
+});
